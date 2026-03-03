@@ -1,0 +1,673 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/staffScrollView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:id="@+id/formLayout"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusableInTouchMode="true">
+
+        <!-- Format Selection -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select Format *"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"/>
+        <Spinner
+            android:id="@+id/formatSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            style="@android:style/Widget.Spinner"
+            android:popupBackground="@android:color/white"
+            android:spinnerMode="dialog"/>
+
+        <!-- Visit Report Layout -->
+        <LinearLayout
+            android:id="@+id/visitReportLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 1. Name of Visiting Staff -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of Visiting Staff"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/nameInput"
+                android:hint="Name of Visiting Staff"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 2. PF Number -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="PF Number"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/pfInput"
+                android:inputType="number"
+                android:hint="PF Number"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 3. Designation -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Designation"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/designationInput"
+                android:hint="Designation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 4. Branch Name -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Branch Name"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/branchInput"
+                android:hint="Branch Name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 5. Branch Code -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Branch Code"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/branchCodeInput"
+                android:inputType="number"
+                android:hint="Branch Code"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 6. Loan Account Number -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loan Account Number"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/loanAccInput"
+                android:inputType="number"
+                android:hint="Loan Account Number"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 7. Name of Borrower -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of Borrower"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/loanNameInput"
+                android:hint="Name of Borrower"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 8. Loan Amount -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loan Amount"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/loanAmountInput"
+                android:hint="Loan Amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 9. Address of Borrower -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Address of Borrower"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/borrowerAddressInput"
+                android:hint="Address of Borrower"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPostalAddress"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 10. Mobile Number of Borrower -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mobile Number of Borrower"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/borrowerMobileInput"
+                android:hint="Mobile Number of Borrower"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="phone"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- 11. Activity -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Activity"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/activityInput"
+                android:hint="Activity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Observations of Inspecting Officer -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Observations"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/remarksInput"
+                android:hint="Enter your observations here"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="120dp"
+                android:gravity="top"
+                android:inputType="textMultiLine|textCapSentences"
+                android:scrollbars="vertical"
+                android:background="?android:attr/editTextBackground"
+                android:padding="8dp"
+                android:layout_marginBottom="16dp"/>
+
+        </LinearLayout>
+
+        <!-- AGRI PSS Layout -->
+        <LinearLayout
+            android:id="@+id/agriPssLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Name of the Applicant -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of the Applicant"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/applicantNameInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter applicant name"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- CIF No. -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CIF No."
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/cifNoInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter CIF number"
+                android:inputType="number"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Constitution -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Constitution"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <Spinner
+                android:id="@+id/constitutionSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:entries="@array/constitution_options"/>
+
+            <!-- Father Name -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Father Name"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/fatherNameInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter father's name"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Nature of Applicant -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nature of Applicant"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <Spinner
+                android:id="@+id/applicantNatureSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:entries="@array/nature_of_applicant_options"/>
+
+            <!-- Key Person Contact -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name &amp; Contact No. of Key Person in the Unit"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/keyPersonInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter key person details"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Residence Address -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Residence Address"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/residenceAddressInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter residence address"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Residence Address Verification -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Residence Address verified with Address Proof"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/residenceVerificationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/residenceVerifiedYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/residenceVerifiedNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+            </RadioGroup>
+
+            <!-- Person Met at Residence -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of person/s met at Residence and Relationship with the Borrower"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/residencePersonMetInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter details of person met"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Workplace Address -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Workplace Address"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/workplaceAddressInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter workplace address"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:background="?android:attr/editTextBackground"/>
+            <!-- Workplace Address Verification -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Workplace Address verified with Address Proof"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/workplaceVerificationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/workplaceVerifiedYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/workplaceVerifiedNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+            </RadioGroup>
+
+            <!-- Person Met at Workplace -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of Key person/s Met at Workplace and Relationship with the Borrower"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/workplacePersonMetInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter details of person met"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Collateral Obtained -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Collateral Obtained"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <Spinner
+                android:id="@+id/collateralObtainedSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:entries="@array/collateral_obtained_options"/>
+
+            <!-- Nature of Property -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nature of Property"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/propertyNatureInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter property nature"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Guarantor Names -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Name of Guarantor/s (if any)"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/guarantorNamesInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter guarantor names"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Collateral Security Address -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Address of Collateral Security"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/collateralAddressInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter collateral address"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Collateral Demarcation -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Collateral Security (Immovable Property) is clearly demarcated and identifiable"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/collateralDemarcationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/collateralDemarcatedYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/collateralDemarcatedNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+                <RadioButton
+                    android:id="@+id/collateralDemarcatedNA"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Not applicable"/>
+            </RadioGroup>
+
+            <!-- Collateral Accessibility -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Collateral Security (Immovable Property) is not land locked and easily accessible"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/collateralAccessibilityGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/collateralAccessibleYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/collateralAccessibleNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+                <RadioButton
+                    android:id="@+id/collateralAccessibleNA"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Not applicable"/>
+            </RadioGroup>
+
+            <!-- Collateral Address Verification -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Collateral Property Address verified"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/collateralAddressVerificationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/collateralAddressVerifiedYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/collateralAddressVerifiedNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+                <RadioButton
+                    android:id="@+id/collateralAddressVerifiedNA"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Not applicable"/>
+            </RadioGroup>
+
+            <!-- Additional Remarks -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Remarks about Applicant not covered above"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/additionalRemarksInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter additional remarks"
+                android:inputType="textMultiLine"
+                android:minLines="3"
+                android:background="?android:attr/editTextBackground"/>
+
+            <!-- Other Loans -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Any Loan taken from Other than Bank"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/otherLoansGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/otherLoansYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/otherLoansNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+            </RadioGroup>
+
+            <!-- Disputes/Litigation -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Any Dispute / litigation against the applicant"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <RadioGroup
+                android:id="@+id/disputesGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/disputesYes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/disputesNo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No"/>
+            </RadioGroup>
+
+            <!-- Attached Annexure -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Attached Annexure"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <Spinner
+                android:id="@+id/attachedAnnexureSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:entries="@array/annexure_options"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:paddingBottom="32dp">
+
+            <Button
+                android:id="@+id/back_to_form_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Back" />
+
+            <Button
+                android:id="@+id/submitButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Submit" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

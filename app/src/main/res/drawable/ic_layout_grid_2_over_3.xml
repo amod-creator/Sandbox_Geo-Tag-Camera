@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="@android:color/white">
+    <!-- outer -->
+    <path android:fillColor="@android:color/white" android:pathData="M2,3h20v2H2z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M2,19h20v2H2z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M2,3h2v18H2z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M20,3h2v18h-2z"/>
+    <!-- horizontal half -->
+    <path android:fillColor="@android:color/white" android:pathData="M2,11h20v2H2z"/>
+    <!-- top 2 split -->
+    <path android:fillColor="@android:color/white" android:pathData="M12,3h1.5v10H12z"/>
+    <!-- bottom 3 vertical splits -->
+    <path android:fillColor="@android:color/white" android:pathData="M8,12h1.5v9H8z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M14.5,12h1.5v9h-1.5z"/>
+</vector>

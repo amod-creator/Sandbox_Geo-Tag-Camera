@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/rootContainer"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewFinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/buttonLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="@android:color/transparent"
+        android:elevation="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/gallery_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_gallery"
+            app:tint="@android:color/white"
+            android:contentDescription="@string/gallery" />
+
+        <ImageButton
+            android:id="@+id/prepare_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_prepare_report"
+            app:tint="@android:color/white"
+            android:contentDescription="@string/prepare_report" />
+
+        <ImageButton
+            android:id="@+id/camera_capture_button"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/capture_button_bg"
+            app:tint="@android:color/white"
+            android:contentDescription="@string/capture_photo" />
+
+        <ImageButton
+            android:id="@+id/video_record_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@android:color/transparent"
+            android:src="@android:drawable/presence_video_online"
+            app:tint="@android:color/white"
+            android:contentDescription="@string/record_video" />
+
+        <ImageButton
+            android:id="@+id/collage_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_collage"
+            app:tint="@android:color/white"
+            android:contentDescription="@string/collage" />
+
+        <ImageButton
+            android:id="@+id/switch_camera_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="32dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_camera_switch"
+            android:contentDescription="@string/switch_camera" />
+    </LinearLayout>
+
+    <!-- Zoom Buttons (1x / 2x) positioned to the left of button bar in landscape -->
+    <LinearLayout
+        android:id="@+id/zoomButtonContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:elevation="10dp"
+        app:layout_constraintEnd_toStartOf="@+id/buttonLayout"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginEnd="4dp">
+
+        <TextView
+            android:id="@+id/zoomButton1x"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="1x"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/zoom_button_active_bg"
+            android:layout_marginBottom="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/zoomButton2x"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="2x"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/zoom_button_inactive_bg"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/gpsOverlayWrapper"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:layout_marginStart="@dimen/gps_overlay_landscape_side_margin"
+        android:layout_marginEnd="@dimen/gps_overlay_landscape_side_margin"
+        android:layout_marginBottom="@dimen/gps_overlay_landscape_vertical_margin"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/zoomButtonContainer">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/gpsOverlayCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            app:cardBackgroundColor="#99000000">
+
+            <LinearLayout
+                android:id="@+id/gpsOverlayContent"
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:baselineAligned="false">
+
+                <ImageView
+                    android:id="@+id/liveMapThumbnail"
+                    android:layout_width="0dp"
+                    android:layout_weight="0.8"
+                    android:layout_height="wrap_content"
+                    android:minHeight="80dp"
+                    android:adjustViewBounds="true"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/live_map_thumbnail"
+                    android:background="@drawable/rounded_corners"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+                <LinearLayout
+                    android:id="@+id/gpsOverlayTextContainer"
+                    android:orientation="vertical"
+                    android:layout_width="0dp"
+                    android:layout_weight="1.2"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp">
+
+                    <!-- Bold city/state header with flag -->
+                    <TextView
+                        style="@style/TextAppearance.App.GpsOverlayTitle"
+                        android:id="@+id/geo_city_header"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="Location"/>
+
+                    <!-- Full address -->
+                    <TextView
+                        style="@style/TextAppearance.App.GpsOverlayValue"
+                        android:id="@+id/geo_address"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:maxLines="3"
+                        android:lineSpacingExtra="2dp"
+                        android:breakStrategy="balanced"
+                        android:singleLine="false"
+                        android:text="@string/address_placeholder"/>
+
+                    <!-- Lat/Long in one line -->
+                    <TextView
+                        style="@style/TextAppearance.App.GpsOverlayValue"
+                        android:id="@+id/geo_latlon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="Lat --°   Long --°"/>
+
+                    <!-- Date/time -->
+                    <TextView
+                        style="@style/TextAppearance.App.GpsOverlayValue"
+                        android:id="@+id/geo_datetime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/datetime_format"/>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <ImageButton
+        android:id="@+id/settingsButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_baseline_settings_24"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/settings"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

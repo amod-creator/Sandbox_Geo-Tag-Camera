@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">GPS Cam Visit Pro</string>
+    <string name="settings">Settings</string>
+    <string name="visit_mode">Visit Mode</string>
+    <string name="visit_mode_toggle">Visit Mode</string>
+    <string name="save">Save</string>
+    <string name="capture_photo">Capture Photo</string>
+    <string name="switch_camera">Switch Camera</string>
+    <string name="open_gallery">Open Gallery</string>
+    <string name="live_map_thumbnail">Live map thumbnail</string>
+    <string name="latitude_placeholder">Lat: —</string>
+    <string name="longitude_placeholder">Lon: —</string>
+    <string name="address_placeholder">Address…</string>
+    <string name="datetime_format">dd/MM/yyyy hh:mm a</string>
+    <string name="delete_image">Delete image</string>
+    <string name="prepare_report">Prepare Report</string>
+    <string name="collage">Collage</string>
+    <string name="layout_preview">Layout preview</string>
+    <string name="gallery">Gallery</string>
+    <string name="record_video">Record Video</string>
+    <string name="not_applicable">Not applicable</string>
+    <string name="move_overlay">Move overlay</string>
+    <string name="drag_move_hint">Long-press the overlay, then drag it anywhere. Release to save the position.</string>
+</resources>

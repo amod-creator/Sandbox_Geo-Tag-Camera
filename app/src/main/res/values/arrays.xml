@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="format_types">
+        <item>VISIT REPORT</item>
+        <item>AGRI PSS</item>
+    </string-array>
+
+    <string-array name="constitution_options">
+        <item>Individual</item>
+        <item>SHG</item>
+        <item>Proprietorship</item>
+        <item>Partnership</item>
+        <item>Pvt. Ltd. Company</item>
+    </string-array>
+
+    <string-array name="nature_of_applicant_options">
+        <item>Borrower</item>
+        <item>Co-Borrower</item>
+    </string-array>
+
+    <string-array name="collateral_obtained_options">
+        <item>Yes</item>
+        <item>No</item>
+    </string-array>
+
+    <string-array name="annexure_options">
+        <item>Non KCC Loan</item>
+        <item>KCC Loan</item>
+        <item>KCC AHF Loan</item>
+    </string-array>
+</resources>

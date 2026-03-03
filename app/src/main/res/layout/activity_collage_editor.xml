@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000"
+    android:fitsSystemWindows="true"
+    tools:context=".CollageEditorActivity">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#000"
+        android:elevation="4dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/collageToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#000"
+            app:title="Collage"
+            app:titleTextColor="#FFF"
+            app:navigationIconTint="#FFF"
+            app:menu="@menu/menu_collage"/>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <View
+        android:id="@+id/topDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1FFFFFFF"/>
+
+    <!-- main editable canvas -->
+    <FrameLayout
+        android:id="@+id/collageCanvas"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="112dp"
+        android:background="#000"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+
+    <!-- bottom panel like the screenshot -->
+    <LinearLayout
+        android:id="@+id/bottomPanel"
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="#101010"
+        android:elevation="8dp"
+        android:paddingTop="4dp">
+
+        <!-- tabs -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/tabRow"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:gravity="center_vertical"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabLayout"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Layout"
+                android:textAllCaps="false"
+                android:textColor="#FFF"
+                app:strokeColor="#FFF"
+                app:strokeWidth="1dp"
+                app:checkedIconTint="@android:color/white"
+                app:backgroundTint="@android:color/transparent"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabBorder"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Border"
+                android:textAllCaps="false"
+                android:textColor="#FFF"
+                app:strokeColor="#FFF"
+                app:strokeWidth="1dp"
+                app:checkedIconTint="@android:color/white"
+                app:backgroundTint="@android:color/transparent"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabRatio"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Ratio"
+                android:textAllCaps="false"
+                android:textColor="#FFF"
+                app:strokeColor="#FFF"
+                app:strokeWidth="1dp"
+                app:checkedIconTint="@android:color/white"
+                app:backgroundTint="@android:color/transparent"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabBackground"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Background"
+                android:textAllCaps="false"
+                android:textColor="#FFF"
+                app:strokeColor="#FFF"
+                app:strokeWidth="1dp"
+                app:checkedIconTint="@android:color/white"
+                app:backgroundTint="@android:color/transparent"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabFilter"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Filter"
+                android:textAllCaps="false"
+                android:textColor="#FFF"
+                app:strokeColor="#FFF"
+                app:strokeWidth="1dp"
+                app:checkedIconTint="@android:color/white"
+                app:backgroundTint="@android:color/transparent"/>
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- options strip (layout thumbnails) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/optionsList"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            tools:listitem="@layout/item_layout_option"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"/>
+    </LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
