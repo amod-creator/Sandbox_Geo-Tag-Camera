@@ -88,18 +88,12 @@ class VisitReportPdfGenerator(private val context: Context) {
         var canvas = page.canvas
         var currentY = 0f
 
-        val centerAlignFooter = Paint(footerPaint).apply { textAlign = Paint.Align.CENTER }
-        val estimatedTotalPages = 1 + if (photos.isEmpty()) 0 else (photos.size + 1) / 2
-
         fun drawFooter() {
             val footerY = pageH - 45f
             canvas.drawLine(margin, footerY - 8f, pageW - margin, footerY - 8f, borderPaint)
             val email = "sbi.${input.branchCode}@sbi.co.in"
             canvas.drawText("bank.sbi", margin, footerY, footerPaint)
             canvas.drawText(email, margin, footerY + 12f, footerPaint)
-            
-            // Center: Page X of Y
-            canvas.drawText("Page $pageNum of $estimatedTotalPages", pageW / 2f, footerY + 12f, centerAlignFooter)
             
             val branchLine = "${input.branchName} (${input.branchCode})"
             val rightAlignF = Paint(footerPaint).apply { textAlign = Paint.Align.RIGHT }
@@ -142,7 +136,7 @@ class VisitReportPdfGenerator(private val context: Context) {
             pageInfo = PdfDocument.PageInfo.Builder(pageW, pageH, pageNum).create()
             page = document.startPage(pageInfo)
             canvas = page.canvas
-            drawHeader()
+            currentY = margin
         }
 
         drawHeader()
@@ -161,7 +155,7 @@ class VisitReportPdfGenerator(private val context: Context) {
 
         fun drawTableHeader(title: String) {
             val h = 22f
-            if (currentY + h > pageH - 80f) { newPage() }
+            if (currentY + h > pageH - margin) { newPage(); drawHeader() }
             canvas.drawRect(startX, currentY, endX, currentY + h, headerFillPaint)
             canvas.drawRect(startX, currentY, endX, currentY + h, borderPaint)
             canvas.drawText(title, startX + 5f, currentY + 15f, textBold)
@@ -170,7 +164,7 @@ class VisitReportPdfGenerator(private val context: Context) {
 
         fun drawTableRow(label: String, value: String) {
             val h = 22f
-            if (currentY + h > pageH - 80f) { newPage() }
+            if (currentY + h > pageH - margin) { newPage(); drawHeader() }
             canvas.drawRect(startX, currentY, midX, currentY + h, borderPaint)
             canvas.drawRect(midX, currentY, endX, currentY + h, borderPaint)
             canvas.drawText(label, startX + 5f, currentY + 15f, textBold)
@@ -179,20 +173,35 @@ class VisitReportPdfGenerator(private val context: Context) {
         }
 
         fun drawMultiLineRow(label: String, value: String) {
-            val maxChars = 70; val lines = mutableListOf<String>(); val pv = value.ifBlank { "NA" }
-            val words = pv.split(" "); var curL = ""
-            for (w in words) {
-                if ((curL + w).length > maxChars) { lines.add(curL.trim()); curL = w + " " }
-                else { curL += w + " " }
+            val maxChars = 70
+            val lines = mutableListOf<String>()
+            val processedValue = value.ifBlank { "NA" }
+            val words = processedValue.split(" ")
+            var currentLine = ""
+            for (word in words) {
+                if ((currentLine + word).length > maxChars) {
+                    lines.add(currentLine.trim())
+                    currentLine = word + " "
+                } else {
+                    currentLine += word + " "
+                }
             }
-            if (curL.isNotBlank()) lines.add(curL.trim())
-            val h = 20f + (lines.size * 14f)
-            if (currentY + h > pageH - 80f) { newPage() }
+            if (currentLine.isNotBlank()) lines.add(currentLine.trim())
+
+            val reqLines = maxOf(1, lines.size)
+            val h = 20f + (reqLines * 14f)
+            
+            if (currentY + h > pageH - margin) { newPage(); drawHeader() }
+            
             canvas.drawRect(startX, currentY, midX, currentY + h, borderPaint)
             canvas.drawRect(midX, currentY, endX, currentY + h, borderPaint)
             canvas.drawText(label, startX + 5f, currentY + 18f, textBold)
+            
             var textY = currentY + 18f
-            for (l in lines) { canvas.drawText(l, midX + 5f, textY, textBlack); textY += 14f }
+            for (line in lines) {
+                canvas.drawText(line, midX + 5f, textY, textBlack)
+                textY += 14f
+            }
             currentY += h
         }
 
@@ -219,7 +228,7 @@ class VisitReportPdfGenerator(private val context: Context) {
         currentY += 30f
 
         // Signature section
-        if (currentY + 70f > pageH - 80f) { newPage() }
+        if (currentY + 60f > pageH - margin) { newPage(); drawHeader() }
         canvas.drawText("Signature of Visiting Official: ___________________", startX, currentY + 10f, textBlack)
         canvas.drawText("(${input.staffName})", startX, currentY + 25f, textBlack)
         canvas.drawText("Designation: ${input.designation}", startX, currentY + 40f, textBlack)
@@ -227,29 +236,53 @@ class VisitReportPdfGenerator(private val context: Context) {
 
         // Photos: 2 images per page
         if (photos.isNotEmpty()) {
-            val paint = Paint().apply { isAntiAlias = true; isFilterBitmap = true }
-            var photoIter = photos.iterator(); var pCount = 1
+            val paint = Paint().apply {
+                isAntiAlias = true
+                isFilterBitmap = true
+            }
+
+            var photoIter = photos.iterator()
             while (photoIter.hasNext()) {
                 newPage()
-                canvas.drawText("SITE PHOTOGRAPHS", pageW / 2f, currentY + 15f, titleTextBold)
-                currentY += 30f
-                val photoAreaH = pageH - 120f - currentY
-                val singlePhotoAreaH = (photoAreaH - 30f) / 2f
+                drawHeader()
+                canvas.drawText("SITE PHOTOGRAPHS", pageW / 2f, currentY + 10f, titleTextBold)
+                currentY += 25f
+
+                val photoAreaH = pageH - margin - currentY - 20f
+                val singlePhotoAreaH = (photoAreaH - 30f) / 2f // Divide height by 2, minus spacing
+
+                // Draw up to 2 photos
                 for (i in 0..1) {
                     if (photoIter.hasNext()) {
                         val bmp = photoIter.next()
-                        val scaledBmp = if (bmp.width > 1200 || bmp.height > 1200) {
-                            val ratio = minOf(1200f / bmp.width, 1200f / bmp.height)
+                        
+                        // Downsample bitmap for size optimization (max width/height 1000px)
+                        val scaledBmp = if (bmp.width > 1000 || bmp.height > 1000) {
+                            val ratio = minOf(1000f / bmp.width, 1000f / bmp.height)
                             Bitmap.createScaledBitmap(bmp, (bmp.width * ratio).toInt(), (bmp.height * ratio).toInt(), true)
-                        } else { bmp }
+                        } else {
+                            bmp
+                        }
+
                         val maxImgW = pageW - margin * 2
-                        val scale = minOf(maxImgW / scaledBmp.width.toFloat(), singlePhotoAreaH / scaledBmp.height.toFloat())
-                        val drawW = scaledBmp.width * scale; val drawH = scaledBmp.height * scale
+                        val scaleW = maxImgW / scaledBmp.width.toFloat()
+                        val scaleH = singlePhotoAreaH / scaledBmp.height.toFloat()
+                        val scale = minOf(scaleW, scaleH)
+
+                        val drawW = scaledBmp.width * scale
+                        val drawH = scaledBmp.height * scale
                         val drawX = margin + (maxImgW - drawW) / 2f
-                        canvas.drawText("Photograph ${pCount++}", margin, currentY - 5f, textBold)
+                        
                         val rect = RectF(drawX, currentY, drawX + drawW, currentY + drawH)
-                        canvas.drawBitmap(scaledBmp, null, rect, paint); canvas.drawRect(rect, borderPaint)
-                        currentY += drawH + 35f
+                        canvas.drawBitmap(scaledBmp, null, rect, paint)
+                        canvas.drawRect(rect, borderPaint)
+                        
+                        currentY += drawH + 25f // Next photo position or end of page
+                        
+                        // If it's a new scaled bitmap, recycle it after drawing (original is managed by activity)
+                        if (scaledBmp != bmp) {
+                            // scaledBmp.recycle() // Note: Be careful with recycling if used elsewhere, but here it's temporary
+                        }
                     }
                 }
             }

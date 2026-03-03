@@ -88,18 +88,12 @@ class VisitReportPdfGenerator(private val context: Context) {
         var canvas = page.canvas
         var currentY = 0f
 
-        val centerAlignFooter = Paint(footerPaint).apply { textAlign = Paint.Align.CENTER }
-        val estimatedTotalPages = 1 + if (photos.isEmpty()) 0 else (photos.size + 1) / 2
-
         fun drawFooter() {
             val footerY = pageH - 45f
             canvas.drawLine(margin, footerY - 8f, pageW - margin, footerY - 8f, borderPaint)
             val email = "sbi.${input.branchCode}@sbi.co.in"
             canvas.drawText("bank.sbi", margin, footerY, footerPaint)
             canvas.drawText(email, margin, footerY + 12f, footerPaint)
-            
-            // Center: Page X of Y
-            canvas.drawText("Page $pageNum of $estimatedTotalPages", pageW / 2f, footerY + 12f, centerAlignFooter)
             
             val branchLine = "${input.branchName} (${input.branchCode})"
             val rightAlignF = Paint(footerPaint).apply { textAlign = Paint.Align.RIGHT }

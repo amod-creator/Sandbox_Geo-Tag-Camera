@@ -71,11 +71,6 @@ class StaffInputActivity : AppCompatActivity() {
             }
         }
 
-        // Back button
-        binding.backToFormButton.setOnClickListener {
-            finish()
-        }
-
         setupCollateralObtainedWatcher()
 
         // Set up scroll behavior for keyboard visibility
