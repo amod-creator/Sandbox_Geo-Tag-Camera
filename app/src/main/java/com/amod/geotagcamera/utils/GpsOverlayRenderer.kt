@@ -110,7 +110,7 @@ class GpsOverlayRenderer(private val context: Context) {
             val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
             val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
 
-            val textBlockHeight = badgeH + lineSpacing + (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+            val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
             val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
             val overlayBottom = videoHeight - overlayPadding
@@ -155,7 +155,7 @@ class GpsOverlayRenderer(private val context: Context) {
                 canvas.restore()
             }
 
-            // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the text area
+            // Draw "Ad Free GPS Cam Visit Pro" badge above the overlay card (aligned to the right side of overlay)
             val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.argb(204, 0, 0, 0) // Semi-transparent black
                 style = Paint.Style.FILL
@@ -163,8 +163,8 @@ class GpsOverlayRenderer(private val context: Context) {
 
             val badgeRight = overlayRight - contentInternalPadding
             val badgeLeft = badgeRight - badgeW
-            val badgeTop = overlayTop + overlayPadding
-            val badgeBottom = badgeTop + badgeH
+            val badgeBottom = overlayTop - lineSpacing
+            val badgeTop = badgeBottom - badgeH
 
             val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
             val badgeRadius = 2f * globalScale
@@ -172,7 +172,7 @@ class GpsOverlayRenderer(private val context: Context) {
             canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
             val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-            val textStartY = overlayTop + overlayPadding + badgeH + lineSpacing
+            val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
             canvas.save()
             canvas.translate(textStartX, textStartY)
             headerLayout.draw(canvas)
@@ -315,7 +315,7 @@ class GpsOverlayRenderer(private val context: Context) {
         val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
         val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
 
-        val textBlockHeight = badgeH + lineSpacing + (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+        val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
         val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
         val overlayBottom = resultBitmap.height - overlayPadding
@@ -373,8 +373,8 @@ class GpsOverlayRenderer(private val context: Context) {
 
         val badgeRight = overlayRight - contentInternalPadding
         val badgeLeft = badgeRight - badgeW
-        val badgeTop = overlayTop + overlayPadding
-        val badgeBottom = badgeTop + badgeH
+        val badgeBottom = overlayTop - lineSpacing
+        val badgeTop = badgeBottom - badgeH
 
         val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
         val badgeRadius = 2f * globalScale
@@ -383,7 +383,7 @@ class GpsOverlayRenderer(private val context: Context) {
 
         // Draw text block
         val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-        val textStartY = overlayTop + overlayPadding + badgeH + lineSpacing
+        val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
         canvas.save()
         canvas.translate(textStartX, textStartY)
         headerLayout.draw(canvas)

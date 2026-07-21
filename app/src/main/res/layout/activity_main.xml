@@ -165,21 +165,40 @@
 
     </LinearLayout>
 
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/gpsOverlayWrapper"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:clipChildren="false"
         app:layout_constraintBottom_toTopOf="@+id/zoomButtonContainer"
         android:layout_marginBottom="8dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <TextView
+            android:id="@+id/badgeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="6dp"
+            android:text="Ad Free GPS Cam Visit Pro"
+            android:textColor="#FFFFFF"
+            android:textSize="7sp"
+            android:textStyle="bold"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:background="@drawable/badge_background"/>
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/gpsOverlayCard"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
+            android:layout_gravity="center_horizontal"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
             android:clickable="true"
@@ -224,22 +243,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp">
 
-                    <!-- Badge overlay above the text details (next to the map) -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="end"
-                        android:layout_marginBottom="4dp"
-                        android:text="Ad Free GPS Cam Visit Pro"
-                        android:textColor="#FFFFFF"
-                        android:textSize="7sp"
-                        android:textStyle="bold"
-                        android:paddingStart="4dp"
-                        android:paddingEnd="4dp"
-                        android:paddingTop="2dp"
-                        android:paddingBottom="2dp"
-                        android:background="@drawable/badge_background"/>
-
                     <!-- Bold city/state header with flag -->
                     <TextView
                         style="@style/TextAppearance.App.GpsOverlayTitle"
@@ -281,7 +284,7 @@
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-    </FrameLayout>
+    </LinearLayout>
 
     <ImageButton
         android:id="@+id/settingsButton"
