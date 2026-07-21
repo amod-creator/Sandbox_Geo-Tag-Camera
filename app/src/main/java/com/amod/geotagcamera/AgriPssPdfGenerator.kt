@@ -244,9 +244,8 @@ o Any discrepancies or inconsistencies identified during the verification proces
 
                     val maxWidth = signatureWidth
                     val maxHeight = signatureHeight
-                    val scale = minOf(maxWidth / tempBitmap.width.toFloat(), maxHeight / tempBitmap.height.toFloat())
-                    drawW = tempBitmap.width * scale
-                    drawH = tempBitmap.height * scale
+                    drawW = maxWidth
+                    drawH = maxHeight
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

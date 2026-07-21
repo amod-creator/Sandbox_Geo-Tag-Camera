@@ -333,9 +333,8 @@ class VisitReportPdfGenerator(private val context: Context) {
 
                     val maxWidth = signatureWidth * gapScale
                     val maxHeight = signatureHeight * gapScale
-                    val scale = minOf(maxWidth / tempBitmap.width.toFloat(), maxHeight / tempBitmap.height.toFloat())
-                    drawW = tempBitmap.width * scale
-                    drawH = tempBitmap.height * scale
+                    drawW = maxWidth
+                    drawH = maxHeight
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
