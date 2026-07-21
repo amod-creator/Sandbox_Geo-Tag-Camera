@@ -163,7 +163,7 @@ class GpsOverlayRenderer(private val context: Context) {
 
             val badgeRight = overlayRight - contentInternalPadding
             val badgeLeft = badgeRight - badgeW
-            val badgeBottom = overlayTop - lineSpacing
+            val badgeBottom = overlayTop
             val badgeTop = badgeBottom - badgeH
 
             val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
@@ -373,7 +373,7 @@ class GpsOverlayRenderer(private val context: Context) {
 
         val badgeRight = overlayRight - contentInternalPadding
         val badgeLeft = badgeRight - badgeW
-        val badgeBottom = overlayTop - lineSpacing
+        val badgeBottom = overlayTop
         val badgeTop = badgeBottom - badgeH
 
         val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)

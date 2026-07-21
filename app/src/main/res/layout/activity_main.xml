@@ -183,7 +183,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginEnd="16dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginBottom="0dp"
             android:text="Ad Free GPS Cam Visit Pro"
             android:textColor="#FFFFFF"
             android:textSize="7sp"
