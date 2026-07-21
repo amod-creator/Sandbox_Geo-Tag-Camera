@@ -807,9 +807,9 @@ class MainActivity : AppCompatActivity() {
         val fileName = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
         val shutterLat = currentLocation?.latitude
         val shutterLon = currentLocation?.longitude
-        val shutterAddr = findViewById<TextView>(R.id.geo_address)?.text?.toString() ?: "Address unavailable"
+        val shutterAddr = address.ifBlank { "Address unavailable" }
         val shutterGpsText = if (shutterLat != null && shutterLon != null) {
-            val addrLine = if (shutterAddr.isNotBlank() && shutterAddr != "Address unavailable") "$shutterAddr\n" else ""
+            val addrLine = if (shutterAddr.isNotBlank() && shutterAddr != "Address unavailable" && shutterAddr != "Address unavailable (Offline)") "$shutterAddr\n" else ""
             "${addrLine}Lat %.5f, Long %.5f".format(shutterLat, shutterLon)
         } else {
             shutterAddr
@@ -1696,8 +1696,27 @@ class MainActivity : AppCompatActivity() {
                                 val exif = ExifInterface(input)
                                 val latLong = FloatArray(2)
                                 if (exif.getLatLong(latLong)) {
+                                    val lat = latLong[0].toDouble()
+                                    val lon = latLong[1].toDouble()
+                                    var addressText = ""
+                                    try {
+                                        val addressList = Geocoder(this@MainActivity, Locale.getDefault())
+                                            .getFromLocation(lat, lon, 1)
+                                        if (!addressList.isNullOrEmpty()) {
+                                            val addr = addressList[0]
+                                            val lines = (0..addr.maxAddressLineIndex).map { addr.getAddressLine(it) }.distinct()
+                                            addressText = lines.joinToString("\n")
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("GPS_DEBUG", "Gallery reverse geocoding failed: ${e.message}")
+                                    }
+
                                     @Suppress("DefaultLocale")
-                                    gpsInfo = "Lat %.5f, Long %.5f".format(latLong[0], latLong[1])
+                                    gpsInfo = if (addressText.isNotBlank()) {
+                                        "$addressText\nLat %.5f, Long %.5f".format(lat, lon)
+                                    } else {
+                                        "Lat %.5f, Long %.5f".format(lat, lon)
+                                    }
                                     Log.d("GPS_DEBUG", "Gallery EXIF hit for URI $stableUri: $gpsInfo")
                                 } else {
                                     Log.w("GPS_DEBUG", "Gallery EXIF miss for URI $stableUri (No coordinates tag)")
