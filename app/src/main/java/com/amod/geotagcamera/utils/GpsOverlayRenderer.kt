@@ -94,12 +94,23 @@ class GpsOverlayRenderer(private val context: Context) {
             val combinedLatLon = "Lat $cleanLat°   Long $cleanLon°"
             val lineSpacing = videoWidth * 0.008f
 
+            val badgeText = "Ad Free GPS Cam Visit Pro"
+            val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = videoWidth * 0.016f * globalScale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val padX = 4f * globalScale
+            val padY = 2f * globalScale
+            val badgeW = badgeTextPaint.measureText(badgeText) + padX * 2
+            val badgeH = badgeTextPaint.textSize + padY * 2
+
             val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
             val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
             val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
             val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
 
-            val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+            val textBlockHeight = badgeH + lineSpacing + (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
             val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
             val overlayBottom = videoHeight - overlayPadding
@@ -142,45 +153,32 @@ class GpsOverlayRenderer(private val context: Context) {
                 canvas.clipPath(clipPath)
                 canvas.drawBitmap(it, thumbMatrix, Paint(Paint.FILTER_BITMAP_FLAG))
                 canvas.restore()
-
-                // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the map thumbnail
-                val badgeText = "Ad Free GPS Cam Visit Pro"
-                val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.WHITE
-                    textSize = videoWidth * 0.016f * globalScale
-                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                }
-                val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.parseColor("#1F3A60")
-                    style = Paint.Style.FILL
-                }
-                val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.WHITE
-                    style = Paint.Style.STROKE
-                    strokeWidth = 0.5f * globalScale
-                }
-
-                val textW = badgeTextPaint.measureText(badgeText)
-                val padX = 4f * globalScale
-                val padY = 2f * globalScale
-                val badgeW = textW + padX * 2
-                val badgeH = badgeTextPaint.textSize + padY * 2
-
-                val marginOffset = 3f * globalScale
-                val badgeRight = thumbX + targetThumbWidth - marginOffset
-                val badgeLeft = badgeRight - badgeW
-                val badgeTop = thumbY + marginOffset
-                val badgeBottom = badgeTop + badgeH
-
-                val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
-                val badgeRadius = 2f * globalScale
-                canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-                canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
-                canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
             }
 
+            // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the text area
+            val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(204, 0, 0, 0) // Semi-transparent black
+                style = Paint.Style.FILL
+            }
+            val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = 0.5f * globalScale
+            }
+
+            val badgeRight = overlayRight - contentInternalPadding
+            val badgeLeft = badgeRight - badgeW
+            val badgeTop = overlayTop + overlayPadding
+            val badgeBottom = badgeTop + badgeH
+
+            val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
+            val badgeRadius = 2f * globalScale
+            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
+            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
+            canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
+
             val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-            val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
+            val textStartY = overlayTop + overlayPadding + badgeH + lineSpacing
             canvas.save()
             canvas.translate(textStartX, textStartY)
             headerLayout.draw(canvas)
@@ -307,12 +305,23 @@ class GpsOverlayRenderer(private val context: Context) {
         val combinedLatLon = "Lat $cleanLat°   Long $cleanLon°"
         val lineSpacing = resultBitmap.width * 0.008f
 
+        val badgeText = "Ad Free GPS Cam Visit Pro"
+        val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = resultBitmap.width * 0.016f * globalScale
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val padX = 4f * globalScale
+        val padY = 2f * globalScale
+        val badgeW = badgeTextPaint.measureText(badgeText) + padX * 2
+        val badgeH = badgeTextPaint.textSize + padY * 2
+
         val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
         val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
         val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
         val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
 
-        val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+        val textBlockHeight = badgeH + lineSpacing + (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
         val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
         val overlayBottom = resultBitmap.height - overlayPadding
@@ -360,46 +369,33 @@ class GpsOverlayRenderer(private val context: Context) {
             canvas.clipPath(clipPath)
             canvas.drawBitmap(it, thumbMatrix, Paint(Paint.FILTER_BITMAP_FLAG))
             canvas.restore()
-
-            // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the map thumbnail
-            val badgeText = "Ad Free GPS Cam Visit Pro"
-            val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                textSize = resultBitmap.width * 0.016f * globalScale
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#1F3A60")
-                style = Paint.Style.FILL
-            }
-            val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                style = Paint.Style.STROKE
-                strokeWidth = 0.5f * globalScale
-            }
-
-            val textW = badgeTextPaint.measureText(badgeText)
-            val padX = 4f * globalScale
-            val padY = 2f * globalScale
-            val badgeW = textW + padX * 2
-            val badgeH = badgeTextPaint.textSize + padY * 2
-
-            val marginOffset = 3f * globalScale
-            val badgeRight = thumbX + targetThumbWidth - marginOffset
-            val badgeLeft = badgeRight - badgeW
-            val badgeTop = thumbY + marginOffset
-            val badgeBottom = badgeTop + badgeH
-
-            val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
-            val badgeRadius = 2f * globalScale
-            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
-            canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
         }
+
+        // Draw "Ad Free GPS Cam Visit Pro" badge above the text details block (aligned to the right side of overlay)
+        val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(204, 0, 0, 0) // Semi-transparent black
+            style = Paint.Style.FILL
+        }
+        val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 0.5f * globalScale
+        }
+
+        val badgeRight = overlayRight - contentInternalPadding
+        val badgeLeft = badgeRight - badgeW
+        val badgeTop = overlayTop + overlayPadding
+        val badgeBottom = badgeTop + badgeH
+
+        val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
+        val badgeRadius = 2f * globalScale
+        canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
+        canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
+        canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
         // Draw text block
         val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-        val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
+        val textStartY = overlayTop + overlayPadding + badgeH + lineSpacing
         canvas.save()
         canvas.translate(textStartX, textStartY)
         headerLayout.draw(canvas)
