@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F9FA">
+
+    <!-- Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/sigEditorToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#1F3A60"
+        app:title="Signature Editor"
+        app:titleTextColor="#FFFFFF"
+        app:navigationIcon="@drawable/ic_back_white"
+        app:navigationIconTint="#FFFFFF"/>
+
+    <!-- Main Content Area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Preview Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1.2"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="3dp"
+            app:strokeColor="#DDDDDD"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <!-- Checkered background helper or just white to display transparency -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                
+                <ImageView
+                    android:id="@+id/sigPreviewImageView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="12dp"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Signature Preview"/>
+            </FrameLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Tool Buttons Container -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRotateClockwise"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rotate"
+                app:icon="@drawable/ic_camera_switch"
+                app:iconTint="#1F3A60"
+                android:textColor="#1F3A60"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAutoCrop"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Auto Crop"
+                app:icon="@drawable/ic_border_medium"
+                app:iconTint="#1F3A60"
+                android:textColor="#1F3A60"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnReset"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Reset"
+                app:icon="@android:drawable/ic_menu_revert"
+                app:iconTint="#1F3A60"
+                android:textColor="#1F3A60"/>
+
+        </LinearLayout>
+
+        <!-- Filter Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Signature Filter Presets"
+            android:textStyle="bold"
+            android:textColor="#1F3A60"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Filters Selection Group -->
+        <RadioGroup
+            android:id="@+id/filterRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/radioFilterOriginal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Original"
+                android:layout_marginEnd="16dp"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/radioFilterTransparent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Transparent"
+                android:layout_marginEnd="16dp"/>
+
+            <RadioButton
+                android:id="@+id/radioFilterClean"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clean Paper"/>
+
+        </RadioGroup>
+
+        <!-- Sensitivity Slider Area -->
+        <LinearLayout
+            android:id="@+id/sliderContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/sliderLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Background Cleaning Sensitivity: 200"
+                android:textSize="12sp"
+                android:textColor="#555555"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sensitivitySeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="200"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Bottom Actions Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:background="#FFFFFF"
+        android:elevation="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelSig"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="Cancel"
+            android:textColor="#1F3A60"
+            app:strokeColor="#1F3A60"
+            android:layout_marginEnd="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveApplySig"
+            android:layout_width="0dp"
+            android:layout_weight="1.2"
+            android:layout_height="48dp"
+            android:text="Save &amp; Apply"
+            android:backgroundTint="#1F3A60"
+            android:textColor="#FFFFFF"
+            android:layout_marginStart="8dp"/>
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -2,6 +2,7 @@ package com.amod.geotagcamera
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -19,6 +20,12 @@ class SettingsActivity : AppCompatActivity() {
     
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { handleSelectedSignature(it) }
+    }
+
+    private val signatureEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            updateSignaturePreview()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,12 +64,14 @@ class SettingsActivity : AppCompatActivity() {
         try {
             contentResolver.openInputStream(uri).use { inputStream ->
                 if (inputStream != null) {
-                    val targetFile = File(filesDir, "signature.png")
-                    FileOutputStream(targetFile).use { outputStream ->
+                    val tempFile = File(cacheDir, "temp_sig_input.jpg")
+                    FileOutputStream(tempFile).use { outputStream ->
                         inputStream.copyTo(outputStream)
                     }
-                    updateSignaturePreview()
-                    Toast.makeText(this, "Signature uploaded successfully!", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, SignatureEditorActivity::class.java).apply {
+                        putExtra("TEMP_SIG_PATH", tempFile.absolutePath)
+                    }
+                    signatureEditorLauncher.launch(intent)
                 } else {
                     Toast.makeText(this, "Could not read selected image", Toast.LENGTH_SHORT).show()
                 }

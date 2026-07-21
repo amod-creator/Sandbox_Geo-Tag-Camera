@@ -56,6 +56,14 @@
         </activity>
 
         <activity
+            android:name=".SignatureEditorActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+            <!-- Signature Editor Activity -->
+        </activity>
+
+        <activity
             android:name=".CollageEditorActivity"
             android:windowSoftInputMode="adjustResize">
             <!-- Collage editing screen -->
