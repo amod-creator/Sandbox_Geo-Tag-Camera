@@ -19,6 +19,7 @@ import java.io.FileOutputStream
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
+    private var ptToPx: Float = 1.0f
     
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { handleSelectedSignature(it) }
@@ -156,6 +157,22 @@ class SettingsActivity : AppCompatActivity() {
             clearSignature()
         }
 
+        // Setup post layout listener to measure correct content width and calculate ptToPx factor
+        binding.signaturePreviewContentArea.post {
+            val width = binding.signaturePreviewContentArea.width
+            if (width > 0) {
+                ptToPx = width / 515f
+                
+                // Adjust height of the float area dynamically to match 50pt PDF spacing
+                val floatAreaParams = binding.sigPreviewFloatArea.layoutParams
+                floatAreaParams.height = (50f * ptToPx).toInt()
+                binding.sigPreviewFloatArea.layoutParams = floatAreaParams
+                
+                // Trigger initial bounds and transforms update
+                triggerBoundsAndTransformsUpdate()
+            }
+        }
+
         // Display current signature if any
         updateSignaturePreview()
     }
@@ -249,14 +266,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateLivePreviewBounds(widthVal: Int, heightVal: Int, offsetX: Int = 0, offsetY: Int = 0, angle: Int = 0) {
-        val density = resources.displayMetrics.density
         val params = binding.signaturePreviewBorderCard.layoutParams as FrameLayout.LayoutParams
-        params.width = (widthVal * density).toInt()
-        params.height = (heightVal * density).toInt()
+        params.width = (widthVal * ptToPx).toInt()
+        params.height = (heightVal * ptToPx).toInt()
+        params.bottomMargin = (2f * ptToPx).toInt() // Spacing above the line matches PDF scaling!
         binding.signaturePreviewBorderCard.layoutParams = params
         
-        binding.signaturePreviewBorderCard.translationX = offsetX * density
-        binding.signaturePreviewBorderCard.translationY = offsetY * density
+        binding.signaturePreviewBorderCard.translationX = offsetX * ptToPx
+        binding.signaturePreviewBorderCard.translationY = offsetY * ptToPx
         binding.signaturePreviewBorderCard.rotation = angle.toFloat()
         
         binding.signaturePreviewBorderCard.requestLayout()
