@@ -13,6 +13,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.amod.geotagcamera.databinding.ActivitySettingsBinding
 import android.widget.SeekBar
 import android.widget.FrameLayout
+import android.content.res.ColorStateList
+import android.graphics.Color
 import java.io.File
 import java.io.FileOutputStream
 
@@ -45,6 +47,33 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
         val currentVisitMode = sharedPrefs.getBoolean("visit_mode", false)
         val currentSignatureRequired = sharedPrefs.getBoolean("signature_required", false)
+
+        // Programmatically configure switches to show Teal when ON and Grey when OFF
+        val thumbStates = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                Color.parseColor("#00796B"), // Teal 700
+                Color.parseColor("#BDBDBD")  // Light Grey
+            )
+        )
+        val trackStates = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                Color.parseColor("#80CBC4"), // Teal 200
+                Color.parseColor("#E0E0E0")  // Very Light Grey
+            )
+        )
+
+        binding.visitModeSwitch.thumbTintList = thumbStates
+        binding.visitModeSwitch.trackTintList = trackStates
+        binding.signatureRequiredSwitch.thumbTintList = thumbStates
+        binding.signatureRequiredSwitch.trackTintList = trackStates
 
         binding.visitModeSwitch.isChecked = currentVisitMode
         binding.signatureRequiredSwitch.isChecked = currentSignatureRequired
@@ -169,19 +198,22 @@ class SettingsActivity : AppCompatActivity() {
             clearSignature()
         }
 
-        // Setup post layout listener to measure correct content width and calculate ptToPx factor
-        binding.signaturePreviewContentArea.post {
-            val width = binding.signaturePreviewContentArea.width
+        // Setup dynamic layout listener to measure content width and calculate ptToPx factor whenever layout updates or toggles visibility
+        binding.signaturePreviewContentArea.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+            val width = right - left
             if (width > 0) {
-                ptToPx = width / 515f
-                
-                // Adjust height of the float area dynamically to match 50pt PDF spacing
-                val floatAreaParams = binding.sigPreviewFloatArea.layoutParams
-                floatAreaParams.height = (50f * ptToPx).toInt()
-                binding.sigPreviewFloatArea.layoutParams = floatAreaParams
-                
-                // Trigger initial bounds and transforms update
-                triggerBoundsAndTransformsUpdate()
+                val newPtToPx = width / 515f
+                if (newPtToPx != ptToPx) {
+                    ptToPx = newPtToPx
+                    
+                    // Adjust height of the float area dynamically to match 50pt PDF spacing
+                    val floatAreaParams = binding.sigPreviewFloatArea.layoutParams
+                    floatAreaParams.height = (50f * ptToPx).toInt()
+                    binding.sigPreviewFloatArea.layoutParams = floatAreaParams
+                    
+                    // Trigger bounds and transforms update
+                    triggerBoundsAndTransformsUpdate()
+                }
             }
         }
 
