@@ -168,14 +168,36 @@
                             android:id="@+id/btnUploadSignature"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                            android:layout_weight="1.2"
                             android:text="@string/upload_signature"
                             android:backgroundTint="#1F3A60"
                             android:textColor="@color/white" />
 
                         <Space
+                            android:id="@+id/btnEditSpace"
                             android:layout_width="8dp"
-                            android:layout_height="wrap_content" />
+                            android:layout_height="wrap_content"
+                            android:visibility="gone"
+                            tools:visibility="visible" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnEditSignature"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Edit"
+                            android:textColor="#1F3A60"
+                            app:strokeColor="#1F3A60"
+                            android:visibility="gone"
+                            tools:visibility="visible" />
+
+                        <Space
+                            android:id="@+id/btnClearSpace"
+                            android:layout_width="8dp"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone"
+                            tools:visibility="visible" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnClearSignature"

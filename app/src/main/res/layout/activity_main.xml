@@ -231,10 +231,8 @@
                         android:layout_gravity="end"
                         android:layout_marginBottom="4dp"
                         app:cardCornerRadius="3dp"
-                        app:cardElevation="2dp"
-                        app:cardBackgroundColor="#CC000000"
-                        app:strokeColor="#FFFFFF"
-                        app:strokeWidth="0.5dp">
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#CC000000">
 
                         <TextView
                             android:layout_width="wrap_content"

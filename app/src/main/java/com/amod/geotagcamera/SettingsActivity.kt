@@ -47,9 +47,30 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("visit_mode", isChecked).apply()
         }
 
-        // Setup upload and clear buttons
+        // Setup upload, edit, and clear buttons
         binding.btnUploadSignature.setOnClickListener {
             pickImageLauncher.launch("image/*")
+        }
+
+        binding.btnEditSignature.setOnClickListener {
+            val targetFile = File(filesDir, "signature.png")
+            if (targetFile.exists()) {
+                try {
+                    val tempFile = File(cacheDir, "temp_sig_input.jpg")
+                    targetFile.inputStream().use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    val intent = Intent(this, SignatureEditorActivity::class.java).apply {
+                        putExtra("TEMP_SIG_PATH", tempFile.absolutePath)
+                    }
+                    signatureEditorLauncher.launch(intent)
+                } catch (e: Exception) {
+                    Log.e("SettingsActivity", "Error setting up edit signature: ${e.message}", e)
+                    Toast.makeText(this, "Could not open signature editor", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         binding.btnClearSignature.setOnClickListener {
@@ -91,7 +112,11 @@ class SettingsActivity : AppCompatActivity() {
                     binding.signaturePreviewImage.setImageBitmap(bitmap)
                     binding.signaturePreviewImage.visibility = View.VISIBLE
                     binding.noSignatureText.visibility = View.GONE
+                    binding.btnEditSignature.visibility = View.VISIBLE
                     binding.btnClearSignature.visibility = View.VISIBLE
+                    binding.btnEditSpace.visibility = View.VISIBLE
+                    binding.btnClearSpace.visibility = View.VISIBLE
+                    binding.btnUploadSignature.text = "Replace"
                     return
                 }
             } catch (e: Exception) {
@@ -100,7 +125,11 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.signaturePreviewImage.visibility = View.GONE
         binding.noSignatureText.visibility = View.VISIBLE
+        binding.btnEditSignature.visibility = View.GONE
         binding.btnClearSignature.visibility = View.GONE
+        binding.btnEditSpace.visibility = View.GONE
+        binding.btnClearSpace.visibility = View.GONE
+        binding.btnUploadSignature.text = getString(R.string.upload_signature)
     }
 
     private fun clearSignature() {

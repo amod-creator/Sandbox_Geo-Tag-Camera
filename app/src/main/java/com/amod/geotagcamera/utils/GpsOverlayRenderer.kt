@@ -160,11 +160,6 @@ class GpsOverlayRenderer(private val context: Context) {
                 color = Color.argb(204, 0, 0, 0) // Semi-transparent black
                 style = Paint.Style.FILL
             }
-            val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                style = Paint.Style.STROKE
-                strokeWidth = 0.5f * globalScale
-            }
 
             val badgeRight = overlayRight - contentInternalPadding
             val badgeLeft = badgeRight - badgeW
@@ -174,7 +169,6 @@ class GpsOverlayRenderer(private val context: Context) {
             val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
             val badgeRadius = 2f * globalScale
             canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
             canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
             val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
@@ -376,11 +370,6 @@ class GpsOverlayRenderer(private val context: Context) {
             color = Color.argb(204, 0, 0, 0) // Semi-transparent black
             style = Paint.Style.FILL
         }
-        val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 0.5f * globalScale
-        }
 
         val badgeRight = overlayRight - contentInternalPadding
         val badgeLeft = badgeRight - badgeW
@@ -390,7 +379,6 @@ class GpsOverlayRenderer(private val context: Context) {
         val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
         val badgeRadius = 2f * globalScale
         canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-        canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
         canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
         // Draw text block
