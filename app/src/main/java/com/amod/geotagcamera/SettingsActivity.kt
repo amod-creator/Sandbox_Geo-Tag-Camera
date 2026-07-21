@@ -94,7 +94,7 @@ class SettingsActivity : AppCompatActivity() {
         // Initialize dynamic signature sizing, offsets, and rotation seekbars
         val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
         val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
-        val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", 0f).toInt()
+        val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", -40f).toInt()
         val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
         val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
 
@@ -263,7 +263,7 @@ class SettingsActivity : AppCompatActivity() {
                     val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
                     val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
                     val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
-                    val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", 0f).toInt()
+                    val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", -40f).toInt()
                     val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
                     val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
                     

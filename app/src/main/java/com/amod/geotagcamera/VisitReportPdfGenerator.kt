@@ -331,7 +331,7 @@ class VisitReportPdfGenerator(private val context: Context) {
                     sigBitmap = tempBitmap
                     val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
                     val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
-                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f)
                     val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
                     val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
@@ -349,7 +349,7 @@ class VisitReportPdfGenerator(private val context: Context) {
         
         if (sigBitmap != null) {
             val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
-            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f)
             val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
             val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 

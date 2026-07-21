@@ -242,7 +242,7 @@ o Any discrepancies or inconsistencies identified during the verification proces
                     sigBitmap = tempBitmap
                     val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
                     val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
-                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f)
                     val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
                     val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
@@ -268,7 +268,7 @@ o Any discrepancies or inconsistencies identified during the verification proces
         // Draw signature above "Signature of Inspecting Official" if uploaded
         if (sigBitmap != null) {
             val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
-            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f)
             val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
             val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
