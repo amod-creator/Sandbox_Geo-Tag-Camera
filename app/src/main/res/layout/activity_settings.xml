@@ -243,6 +243,7 @@
                                     android:layout_marginTop="2dp" />
 
                                 <TextView
+                                    android:id="@+id/sigPreviewLabel"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Signature of Visiting Official"
@@ -250,6 +251,33 @@
                                     android:textStyle="bold"
                                     android:textSize="9sp"
                                     android:layout_marginTop="2dp" />
+
+                                <TextView
+                                    android:id="@+id/sigPreviewStaffName"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="(Amod Kumar)"
+                                    android:textColor="#90A4AE"
+                                    android:textSize="8sp"
+                                    android:layout_marginTop="1dp" />
+
+                                <TextView
+                                    android:id="@+id/sigPreviewDesignation"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Designation: Chief Manager"
+                                    android:textColor="#90A4AE"
+                                    android:textSize="8sp"
+                                    android:layout_marginTop="1dp" />
+
+                                <TextView
+                                    android:id="@+id/sigPreviewDate"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Date: 21-07-2026"
+                                    android:textColor="#90A4AE"
+                                    android:textSize="8sp"
+                                    android:layout_marginTop="1dp" />
                             </LinearLayout>
 
                         </LinearLayout>

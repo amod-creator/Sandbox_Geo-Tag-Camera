@@ -267,6 +267,14 @@ class SettingsActivity : AppCompatActivity() {
                     val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
                     val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
                     
+                    val staffName = sharedPrefs.getString("vr_staff_name", "Amod Kumar") ?: "Amod Kumar"
+                    val designation = sharedPrefs.getString("vr_designation", "Chief Manager") ?: "Chief Manager"
+                    val todayDateStr = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+                    
+                    binding.sigPreviewStaffName.text = if (staffName.isNotEmpty()) "($staffName)" else ""
+                    binding.sigPreviewDesignation.text = "Designation: $designation"
+                    binding.sigPreviewDate.text = "Date: $todayDateStr"
+                    
                     updateLivePreviewBounds(widthVal, heightVal, offsetXVal, offsetYVal, rotationVal)
                     return
                 }
