@@ -83,6 +83,16 @@
                 android:textColor="#1F3A60"/>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnManualCrop"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Crop"
+                app:icon="@android:drawable/ic_menu_crop"
+                app:iconTint="#1F3A60"
+                android:textColor="#1F3A60"/>
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnReset"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
@@ -91,6 +101,121 @@
                 app:icon="@android:drawable/ic_menu_revert"
                 app:iconTint="#1F3A60"
                 android:textColor="#1F3A60"/>
+
+        </LinearLayout>
+
+        <!-- Crop Controls Container -->
+        <LinearLayout
+            android:id="@+id/cropControlsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="#FFFFFF"
+            android:padding="12dp"
+            android:elevation="2dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Manual Crop Borders"
+                android:textStyle="bold"
+                android:textColor="#1F3A60"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Crop Left -->
+            <TextView
+                android:id="@+id/cropLeftLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Crop Left: 0%"
+                android:textSize="11sp"
+                android:textColor="#555555"/>
+            <SeekBar
+                android:id="@+id/cropLeftSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45"
+                android:progress="0"
+                android:layout_marginBottom="6dp"/>
+
+            <!-- Crop Right -->
+            <TextView
+                android:id="@+id/cropRightLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Crop Right: 0%"
+                android:textSize="11sp"
+                android:textColor="#555555"/>
+            <SeekBar
+                android:id="@+id/cropRightSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45"
+                android:progress="0"
+                android:layout_marginBottom="6dp"/>
+
+            <!-- Crop Top -->
+            <TextView
+                android:id="@+id/cropTopLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Crop Top: 0%"
+                android:textSize="11sp"
+                android:textColor="#555555"/>
+            <SeekBar
+                android:id="@+id/cropTopSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45"
+                android:progress="0"
+                android:layout_marginBottom="6dp"/>
+
+            <!-- Crop Bottom -->
+            <TextView
+                android:id="@+id/cropBottomLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Crop Bottom: 0%"
+                android:textSize="11sp"
+                android:textColor="#555555"/>
+            <SeekBar
+                android:id="@+id/cropBottomSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45"
+                android:progress="0"
+                android:layout_marginBottom="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCancelManualCrop"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="36dp"
+                    android:text="Cancel"
+                    android:textColor="#D32F2F"
+                    app:strokeColor="#D32F2F"
+                    android:layout_marginEnd="6dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnConfirmManualCrop"
+                    android:layout_width="0dp"
+                    android:layout_weight="1.2"
+                    android:layout_height="36dp"
+                    android:text="Confirm Crop"
+                    android:backgroundTint="#1F3A60"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginStart="6dp"/>
+
+            </LinearLayout>
 
         </LinearLayout>
 

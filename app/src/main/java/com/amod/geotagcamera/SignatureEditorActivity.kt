@@ -99,6 +99,108 @@ class SignatureEditorActivity : AppCompatActivity() {
             }
         }
 
+        // Manual Crop Mode activation
+        binding.btnManualCrop.setOnClickListener {
+            binding.cropControlsContainer.visibility = View.VISIBLE
+            // Disable other buttons during crop mode
+            binding.btnRotateClockwise.isEnabled = false
+            binding.btnAutoCrop.isEnabled = false
+            binding.btnReset.isEnabled = false
+            binding.btnManualCrop.isEnabled = false
+            binding.filterRadioGroup.isEnabled = false
+            binding.sensitivitySeekBar.isEnabled = false
+            updateCropPreview()
+        }
+
+        // Manual Crop SeekBars
+        binding.cropLeftSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.cropLeftLabel.text = "Crop Left: $progress%"
+                updateCropPreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        binding.cropRightSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.cropRightLabel.text = "Crop Right: $progress%"
+                updateCropPreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        binding.cropTopSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.cropTopLabel.text = "Crop Top: $progress%"
+                updateCropPreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        binding.cropBottomSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.cropBottomLabel.text = "Crop Bottom: $progress%"
+                updateCropPreview()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Confirm manual crop
+        binding.btnConfirmManualCrop.setOnClickListener {
+            val width = currentBitmap.width
+            val height = currentBitmap.height
+            
+            val leftClip = (width * (binding.cropLeftSeekBar.progress / 100f)).toInt()
+            val rightClip = (width * (binding.cropRightSeekBar.progress / 100f)).toInt()
+            val topClip = (height * (binding.cropTopSeekBar.progress / 100f)).toInt()
+            val bottomClip = (height * (binding.cropBottomSeekBar.progress / 100f)).toInt()
+            
+            val newWidth = width - leftClip - rightClip
+            val newHeight = height - topClip - bottomClip
+            
+            if (newWidth > 5 && newHeight > 5) {
+                val cropped = Bitmap.createBitmap(currentBitmap, leftClip, topClip, newWidth, newHeight)
+                currentBitmap.recycle()
+                currentBitmap = cropped
+                
+                // Hide crop controls and restore state
+                binding.cropControlsContainer.visibility = View.GONE
+                binding.btnRotateClockwise.isEnabled = true
+                binding.btnAutoCrop.isEnabled = true
+                binding.btnReset.isEnabled = true
+                binding.btnManualCrop.isEnabled = true
+                binding.filterRadioGroup.isEnabled = true
+                binding.sensitivitySeekBar.isEnabled = true
+                
+                binding.cropLeftSeekBar.progress = 0
+                binding.cropRightSeekBar.progress = 0
+                binding.cropTopSeekBar.progress = 0
+                binding.cropBottomSeekBar.progress = 0
+                
+                updatePreview()
+                Toast.makeText(this, "Signature cropped successfully", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Cancel manual crop
+        binding.btnCancelManualCrop.setOnClickListener {
+            binding.cropControlsContainer.visibility = View.GONE
+            binding.btnRotateClockwise.isEnabled = true
+            binding.btnAutoCrop.isEnabled = true
+            binding.btnReset.isEnabled = true
+            binding.btnManualCrop.isEnabled = true
+            binding.filterRadioGroup.isEnabled = true
+            binding.sensitivitySeekBar.isEnabled = true
+            
+            binding.cropLeftSeekBar.progress = 0
+            binding.cropRightSeekBar.progress = 0
+            binding.cropTopSeekBar.progress = 0
+            binding.cropBottomSeekBar.progress = 0
+            
+            updatePreview()
+        }
+
         // Reset changes to original state
         binding.btnReset.setOnClickListener {
             currentBitmap.recycle()
@@ -136,6 +238,54 @@ class SignatureEditorActivity : AppCompatActivity() {
         binding.btnSaveApplySig.setOnClickListener {
             saveSignatureAndFinish()
         }
+    }
+
+    private fun getActiveFilter(): FilterMode {
+        return when (binding.filterRadioGroup.checkedRadioButtonId) {
+            R.id.radioFilterTransparent -> FilterMode.TRANSPARENT_INK
+            R.id.radioFilterClean -> FilterMode.CLEAN_PAPER
+            else -> FilterMode.ORIGINAL
+        }
+    }
+
+    private fun updateCropPreview() {
+        val width = currentBitmap.width
+        val height = currentBitmap.height
+        
+        val leftClip = (width * (binding.cropLeftSeekBar.progress / 100f)).toInt()
+        val rightClip = (width * (binding.cropRightSeekBar.progress / 100f)).toInt()
+        val topClip = (height * (binding.cropTopSeekBar.progress / 100f)).toInt()
+        val bottomClip = (height * (binding.cropBottomSeekBar.progress / 100f)).toInt()
+
+        // Create display bitmap copy using current filter settings
+        val displayBmp = applySigFilter(currentBitmap, getActiveFilter(), binding.sensitivitySeekBar.progress)
+        val canvas = android.graphics.Canvas(displayBmp)
+        
+        val maskPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(120, 255, 0, 0) // semi-transparent red mask
+            style = android.graphics.Paint.Style.FILL
+        }
+        val borderPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLUE
+            strokeWidth = 3f * resources.displayMetrics.density
+            style = android.graphics.Paint.Style.STROKE
+        }
+        
+        if (leftClip > 0) canvas.drawRect(0f, 0f, leftClip.toFloat(), height.toFloat(), maskPaint)
+        if (rightClip > 0) canvas.drawRect((width - rightClip).toFloat(), 0f, width.toFloat(), height.toFloat(), maskPaint)
+        if (topClip > 0) canvas.drawRect(0f, 0f, width.toFloat(), topClip.toFloat(), maskPaint)
+        if (bottomClip > 0) canvas.drawRect(0f, (height - bottomClip).toFloat(), width.toFloat(), height.toFloat(), maskPaint)
+        
+        // Draw crop area border frame
+        canvas.drawRect(
+            leftClip.toFloat(),
+            topClip.toFloat(),
+            (width - rightClip).toFloat(),
+            (height - bottomClip).toFloat(),
+            borderPaint
+        )
+        
+        binding.sigPreviewImageView.setImageBitmap(displayBmp)
     }
 
     private fun updatePreview() {

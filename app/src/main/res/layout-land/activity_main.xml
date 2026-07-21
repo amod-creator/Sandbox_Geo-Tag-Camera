@@ -151,28 +151,20 @@
                     android:layout_marginStart="12dp">
 
                     <!-- Badge overlay above the text details (next to the map) -->
-                    <com.google.android.material.card.MaterialCardView
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="end"
                         android:layout_marginBottom="4dp"
-                        app:cardCornerRadius="3dp"
-                        app:cardElevation="0dp"
-                        app:cardBackgroundColor="#CC000000">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Ad Free GPS Cam Visit Pro"
-                            android:textColor="#FFFFFF"
-                            android:textSize="7sp"
-                            android:textStyle="bold"
-                            android:paddingStart="4dp"
-                            android:paddingEnd="4dp"
-                            android:paddingTop="2dp"
-                            android:paddingBottom="2dp" />
-
-                    </com.google.android.material.card.MaterialCardView>
+                        android:text="Ad Free GPS Cam Visit Pro"
+                        android:textColor="#FFFFFF"
+                        android:textSize="7sp"
+                        android:textStyle="bold"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:background="@drawable/badge_background"/>
 
                     <TextView
                         style="@style/TextAppearance.App.GpsOverlayTitle"
