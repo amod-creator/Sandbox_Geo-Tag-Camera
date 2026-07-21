@@ -281,7 +281,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnClearSignature.visibility = View.GONE
         binding.btnEditSpace.visibility = View.GONE
         binding.btnClearSpace.visibility = View.GONE
-        binding.btnUploadSignature.text = getString(R.string.upload_signature)
+        binding.btnUploadSignature.text = "Upload"
         binding.signatureSizeContainer.visibility = View.GONE
     }
 

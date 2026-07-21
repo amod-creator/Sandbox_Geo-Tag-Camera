@@ -364,7 +364,8 @@ class VisitReportPdfGenerator(private val context: Context) {
             canvas.restore()
         }
 
-        canvas.drawText("_______________________________________", startX, sigY, textBlack)
+        val linePaint = Paint(textBlack).apply { strokeWidth = 1f }
+        canvas.drawLine(startX, sigY, startX + 160f * gapScale, sigY, linePaint)
         canvas.drawText("Signature of Visiting Official", startX, sigY + 15f * rowHScale, textBold)
         canvas.drawText("(${input.staffName})", startX, sigY + 30f * rowHScale, textBlack)
         canvas.drawText("Designation: ${input.designation}", startX, sigY + 45f * rowHScale, textBlack)

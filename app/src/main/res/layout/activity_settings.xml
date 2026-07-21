@@ -81,9 +81,7 @@
                         android:layout_height="wrap_content"
                         android:text="Enable Visit Mode"
                         android:textColor="#222222"
-                        android:textSize="16sp"
-                        app:thumbTint="@color/teal_700"
-                        app:trackTint="@color/teal_200" />
+                        android:textSize="16sp" />
 
                     <View
                         android:id="@+id/visitModeDivider"
@@ -102,8 +100,6 @@
                         android:text="Signature Required"
                         android:textColor="#222222"
                         android:textSize="16sp"
-                        app:thumbTint="@color/teal_700"
-                        app:trackTint="@color/teal_200"
                         android:visibility="gone"
                         tools:visibility="visible" />
 
@@ -239,12 +235,11 @@
                                 android:orientation="vertical"
                                 android:gravity="start">
 
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="_______________________________________"
-                                    android:textColor="#B0BEC5"
-                                    android:textSize="10sp" />
+                                <View
+                                    android:layout_width="160dp"
+                                    android:layout_height="1dp"
+                                    android:background="#B0BEC5"
+                                    android:layout_marginTop="2dp" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -280,8 +275,9 @@
                             android:id="@+id/btnUploadSignature"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.2"
+                            android:layout_weight="1"
                             android:text="@string/upload_signature"
+                            android:textSize="12sp"
                             android:backgroundTint="#1F3A60"
                             android:textColor="@color/white" />
 
@@ -299,6 +295,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="Edit"
+                            android:textSize="12sp"
                             android:textColor="#1F3A60"
                             app:strokeColor="#1F3A60"
                             android:visibility="gone"
@@ -316,8 +313,9 @@
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.2"
+                            android:layout_weight="1"
                             android:text="Clear"
+                            android:textSize="12sp"
                             android:textColor="#D32F2F"
                             app:strokeColor="#D32F2F"
                             android:visibility="gone"
