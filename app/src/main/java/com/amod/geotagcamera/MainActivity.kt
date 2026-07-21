@@ -395,7 +395,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         runOnUiThread {
-            val overlayWrapper = findViewById<FrameLayout>(R.id.gpsOverlayWrapper) ?: return@runOnUiThread
+            val overlayWrapper = findViewById<LinearLayout>(R.id.gpsOverlayWrapper) ?: return@runOnUiThread
             val overlayCard = findViewById<MaterialCardView>(R.id.gpsOverlayCard) ?: return@runOnUiThread
             val buttonLayout = findViewById<View>(R.id.buttonLayout) ?: return@runOnUiThread
             val contentLayout = findViewById<LinearLayout>(R.id.gpsOverlayContent) ?: return@runOnUiThread
@@ -459,8 +459,8 @@ class MainActivity : AppCompatActivity() {
                 set.constrainHeight(R.id.gpsOverlayWrapper, ConstraintSet.WRAP_CONTENT)
                 set.applyTo(rootLayout)
                 
-                overlayWrapper.layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT
-                overlayCard.layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT
+                overlayWrapper.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+                overlayCard.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
                 overlayCard.requestLayout()
                 overlayWrapper.requestLayout()
             } else {
@@ -479,8 +479,8 @@ class MainActivity : AppCompatActivity() {
                 
                 // CRUCIAL: Set WRAPPER width to targetWidth too, otherwise it rotates a full-screen bar
                 overlayWrapper.layoutParams.width = targetWidth
-                overlayWrapper.layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT
-                overlayCard.layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT
+                overlayWrapper.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                overlayCard.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
                 
                 // Measure card height
                 overlayCard.measure(
