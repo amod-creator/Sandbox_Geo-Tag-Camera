@@ -213,6 +213,72 @@
 
                     </LinearLayout>
 
+                    <!-- Dynamic Signature Size settings -->
+                    <LinearLayout
+                        android:id="@+id/signatureSizeContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="16dp"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#EEEEEE"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="PDF Signature Sizing (Dynamic)"
+                            android:textStyle="bold"
+                            android:textColor="#1F3A60"
+                            android:textSize="13sp"
+                            android:layout_marginBottom="8dp" />
+
+                        <!-- Width SeekBar -->
+                        <TextView
+                            android:id="@+id/sigWidthLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Display Width: 120pt"
+                            android:textSize="12sp"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp" />
+
+                        <SeekBar
+                            android:id="@+id/sigWidthSeekBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="300"
+                            android:progress="120"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- Height SeekBar -->
+                        <TextView
+                            android:id="@+id/sigHeightLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Display Height: 40pt"
+                            android:textSize="12sp"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp" />
+
+                        <SeekBar
+                            android:id="@+id/sigHeightSeekBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="150"
+                            android:progress="40"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp" />
+
+                    </LinearLayout>
+
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>

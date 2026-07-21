@@ -327,8 +327,12 @@ class VisitReportPdfGenerator(private val context: Context) {
                 val tempBitmap = BitmapFactory.decodeFile(signatureFile.absolutePath)
                 if (tempBitmap != null) {
                     sigBitmap = tempBitmap
-                    val maxWidth = 120f * gapScale
-                    val maxHeight = 40f * gapScale
+                    val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
+                    val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
+                    val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
+
+                    val maxWidth = signatureWidth * gapScale
+                    val maxHeight = signatureHeight * gapScale
                     val scale = minOf(maxWidth / tempBitmap.width.toFloat(), maxHeight / tempBitmap.height.toFloat())
                     drawW = tempBitmap.width * scale
                     drawH = tempBitmap.height * scale

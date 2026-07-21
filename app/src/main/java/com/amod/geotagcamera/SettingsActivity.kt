@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.amod.geotagcamera.databinding.ActivitySettingsBinding
+import android.widget.SeekBar
 import java.io.File
 import java.io.FileOutputStream
 
@@ -46,6 +47,36 @@ class SettingsActivity : AppCompatActivity() {
         binding.visitModeSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("visit_mode", isChecked).apply()
         }
+
+        // Initialize dynamic signature sizing seekbars
+        val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
+        val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
+
+        binding.sigWidthSeekBar.progress = widthVal
+        binding.sigWidthLabel.text = "Display Width: ${widthVal}pt"
+
+        binding.sigHeightSeekBar.progress = heightVal
+        binding.sigHeightLabel.text = "Display Height: ${heightVal}pt"
+
+        binding.sigWidthSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val progressVal = maxOf(30, progress) // minimum width 30pt
+                binding.sigWidthLabel.text = "Display Width: ${progressVal}pt"
+                sharedPrefs.edit().putFloat("signature_pdf_width", progressVal.toFloat()).apply()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.sigHeightSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val progressVal = maxOf(10, progress) // minimum height 10pt
+                binding.sigHeightLabel.text = "Display Height: ${progressVal}pt"
+                sharedPrefs.edit().putFloat("signature_pdf_height", progressVal.toFloat()).apply()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         // Setup upload, edit, and clear buttons
         binding.btnUploadSignature.setOnClickListener {
@@ -117,6 +148,7 @@ class SettingsActivity : AppCompatActivity() {
                     binding.btnEditSpace.visibility = View.VISIBLE
                     binding.btnClearSpace.visibility = View.VISIBLE
                     binding.btnUploadSignature.text = "Replace"
+                    binding.signatureSizeContainer.visibility = View.VISIBLE
                     return
                 }
             } catch (e: Exception) {
@@ -130,6 +162,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnEditSpace.visibility = View.GONE
         binding.btnClearSpace.visibility = View.GONE
         binding.btnUploadSignature.text = getString(R.string.upload_signature)
+        binding.signatureSizeContainer.visibility = View.GONE
     }
 
     private fun clearSignature() {

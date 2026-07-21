@@ -238,8 +238,12 @@ o Any discrepancies or inconsistencies identified during the verification proces
                 val tempBitmap = BitmapFactory.decodeFile(signatureFile.absolutePath)
                 if (tempBitmap != null) {
                     sigBitmap = tempBitmap
-                    val maxWidth = 120f
-                    val maxHeight = 40f
+                    val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
+                    val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
+                    val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
+
+                    val maxWidth = signatureWidth
+                    val maxHeight = signatureHeight
                     val scale = minOf(maxWidth / tempBitmap.width.toFloat(), maxHeight / tempBitmap.height.toFloat())
                     drawW = tempBitmap.width * scale
                     drawH = tempBitmap.height * scale
