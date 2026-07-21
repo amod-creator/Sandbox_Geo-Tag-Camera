@@ -47,6 +47,8 @@ class StaffInputActivity : AppCompatActivity() {
         val firstGps = photoGpsList.firstOrNull()
         if (!firstGps.isNullOrBlank()) {
             binding.gpsLocationInput.setText(firstGps)
+        } else {
+            binding.gpsLocationInput.setText("GPS Location not Fetched")
         }
 
         // Initialize format spinner with a custom layout for items
@@ -473,11 +475,64 @@ class StaffInputActivity : AppCompatActivity() {
         saveFormState()
     }
 
+    private val autoSaveLabels = HashMap<android.widget.EditText, android.widget.TextView>()
+
+    private fun setupAutoSaveField(editText: android.widget.EditText, savedValue: String?) {
+        val value = savedValue ?: ""
+        if (value.isEmpty()) {
+            editText.setText("")
+            val label = autoSaveLabels[editText]
+            label?.visibility = android.view.View.GONE
+            return
+        }
+
+        editText.setText(value)
+
+        // Find or create label
+        var label = autoSaveLabels[editText]
+        if (label == null) {
+            val parent = editText.parent as? android.view.ViewGroup
+            if (parent is android.widget.LinearLayout) {
+                val index = parent.indexOfChild(editText)
+                val density = resources.displayMetrics.density
+                val marginStart = (4 * density).toInt()
+                val marginTop = (2 * density).toInt()
+                val marginBottom = (8 * density).toInt()
+                
+                label = android.widget.TextView(this).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(marginStart, marginTop, marginStart, marginBottom)
+                    }
+                    text = "Auto Saved Data"
+                    setTextColor(android.graphics.Color.parseColor("#777777"))
+                    textSize = 10f
+                    setTypeface(null, android.graphics.Typeface.ITALIC)
+                }
+                parent.addView(label, index + 1)
+                autoSaveLabels[editText] = label
+            }
+        }
+
+        label?.visibility = android.view.View.VISIBLE
+
+        // Add TextWatcher to hide label on user edit
+        editText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                label?.visibility = android.view.View.GONE
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+    }
+
     private fun saveFormState() {
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.FORM_PREFS", Context.MODE_PRIVATE)
         val editor = sharedPrefs.edit()
 
-        // Visit Report fields
+        // Visit Report fields (GPS is NOT saved/remembered anymore)
         editor.putString("vr_staff_name", binding.nameInput.text.toString())
         editor.putString("vr_pf_number", binding.pfInput.text.toString())
         editor.putString("vr_designation", binding.designationInput.text.toString())
@@ -490,7 +545,6 @@ class StaffInputActivity : AppCompatActivity() {
         editor.putString("vr_borrower_mobile", binding.borrowerMobileInput.text.toString())
         editor.putString("vr_activity", binding.activityInput.text.toString())
         editor.putString("vr_observations", binding.remarksInput.text.toString())
-        editor.putString("vr_gps_location", binding.gpsLocationInput.text.toString())
 
         // Agri Pss fields
         editor.putString("ap_applicant_name", binding.applicantNameInput.text.toString())
@@ -533,47 +587,48 @@ class StaffInputActivity : AppCompatActivity() {
     private fun loadFormState() {
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.FORM_PREFS", Context.MODE_PRIVATE)
 
-        binding.nameInput.setText(sharedPrefs.getString("vr_staff_name", ""))
-        binding.pfInput.setText(sharedPrefs.getString("vr_pf_number", ""))
-        binding.designationInput.setText(sharedPrefs.getString("vr_designation", ""))
-        binding.branchInput.setText(sharedPrefs.getString("vr_branch_name", ""))
-        binding.branchCodeInput.setText(sharedPrefs.getString("vr_branch_code", ""))
-        binding.loanAccInput.setText(sharedPrefs.getString("vr_loan_acc", ""))
-        binding.loanNameInput.setText(sharedPrefs.getString("vr_loan_name", ""))
-        binding.loanAmountInput.setText(sharedPrefs.getString("vr_loan_amount", ""))
-        binding.borrowerAddressInput.setText(sharedPrefs.getString("vr_borrower_address", ""))
-        binding.borrowerMobileInput.setText(sharedPrefs.getString("vr_borrower_mobile", ""))
-        binding.activityInput.setText(sharedPrefs.getString("vr_activity", ""))
-        binding.remarksInput.setText(sharedPrefs.getString("vr_observations", ""))
-        binding.gpsLocationInput.setText(sharedPrefs.getString("vr_gps_location", ""))
+        // Visit Report fields (GPS is NOT loaded/restored from preferences anymore)
+        setupAutoSaveField(binding.nameInput, sharedPrefs.getString("vr_staff_name", ""))
+        setupAutoSaveField(binding.pfInput, sharedPrefs.getString("vr_pf_number", ""))
+        setupAutoSaveField(binding.designationInput, sharedPrefs.getString("vr_designation", ""))
+        setupAutoSaveField(binding.branchInput, sharedPrefs.getString("vr_branch_name", ""))
+        setupAutoSaveField(binding.branchCodeInput, sharedPrefs.getString("vr_branch_code", ""))
+        setupAutoSaveField(binding.loanAccInput, sharedPrefs.getString("vr_loan_acc", ""))
+        setupAutoSaveField(binding.loanNameInput, sharedPrefs.getString("vr_loan_name", ""))
+        setupAutoSaveField(binding.loanAmountInput, sharedPrefs.getString("vr_loan_amount", ""))
+        setupAutoSaveField(binding.borrowerAddressInput, sharedPrefs.getString("vr_borrower_address", ""))
+        setupAutoSaveField(binding.borrowerMobileInput, sharedPrefs.getString("vr_borrower_mobile", ""))
+        setupAutoSaveField(binding.activityInput, sharedPrefs.getString("vr_activity", ""))
+        setupAutoSaveField(binding.remarksInput, sharedPrefs.getString("vr_observations", ""))
 
-        binding.applicantNameInput.setText(sharedPrefs.getString("ap_applicant_name", ""))
-        binding.cifNoInput.setText(sharedPrefs.getString("ap_cif_no", ""))
+        // Agri Pss fields
+        setupAutoSaveField(binding.applicantNameInput, sharedPrefs.getString("ap_applicant_name", ""))
+        setupAutoSaveField(binding.cifNoInput, sharedPrefs.getString("ap_cif_no", ""))
         binding.constitutionSpinner.setSelection(sharedPrefs.getInt("ap_constitution_sel", 0))
-        binding.fatherNameInput.setText(sharedPrefs.getString("ap_father_name", ""))
+        setupAutoSaveField(binding.fatherNameInput, sharedPrefs.getString("ap_father_name", ""))
         binding.applicantNatureSpinner.setSelection(sharedPrefs.getInt("ap_applicant_nature_sel", 0))
         binding.attachedAnnexureSpinner.setSelection(sharedPrefs.getInt("ap_annexure_sel", 0))
         binding.collateralObtainedSpinner.setSelection(sharedPrefs.getInt("ap_collateral_obtained_sel", 0))
-        binding.propertyNatureInput.setText(sharedPrefs.getString("ap_property_nature", ""))
-        binding.collateralAddressInput.setText(sharedPrefs.getString("ap_collateral_address", ""))
+        setupAutoSaveField(binding.propertyNatureInput, sharedPrefs.getString("ap_property_nature", ""))
+        setupAutoSaveField(binding.collateralAddressInput, sharedPrefs.getString("ap_collateral_address", ""))
 
         binding.collateralDemarcatedYes.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_yes", false)
         binding.collateralDemarcatedNo.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_no", false)
         binding.collateralDemarcatedNA.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_na", false)
 
-        binding.residenceAddressInput.setText(sharedPrefs.getString("ap_residence_address", ""))
+        setupAutoSaveField(binding.residenceAddressInput, sharedPrefs.getString("ap_residence_address", ""))
         binding.residenceVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_residence_verified_yes", false)
         binding.residenceVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_residence_verified_no", false)
-        binding.residencePersonMetInput.setText(sharedPrefs.getString("ap_residence_person_met", ""))
+        setupAutoSaveField(binding.residencePersonMetInput, sharedPrefs.getString("ap_residence_person_met", ""))
 
-        binding.workplaceAddressInput.setText(sharedPrefs.getString("ap_workplace_address", ""))
+        setupAutoSaveField(binding.workplaceAddressInput, sharedPrefs.getString("ap_workplace_address", ""))
         binding.workplaceVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_workplace_verified_yes", false)
         binding.workplaceVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_workplace_verified_no", false)
-        binding.workplacePersonMetInput.setText(sharedPrefs.getString("ap_workplace_person_met", ""))
+        setupAutoSaveField(binding.workplacePersonMetInput, sharedPrefs.getString("ap_workplace_person_met", ""))
 
-        binding.additionalRemarksInput.setText(sharedPrefs.getString("ap_remarks", ""))
-        binding.keyPersonInput.setText(sharedPrefs.getString("ap_key_person", ""))
-        binding.guarantorNamesInput.setText(sharedPrefs.getString("ap_guarantor_names", ""))
+        setupAutoSaveField(binding.additionalRemarksInput, sharedPrefs.getString("ap_remarks", ""))
+        setupAutoSaveField(binding.keyPersonInput, sharedPrefs.getString("ap_key_person", ""))
+        setupAutoSaveField(binding.guarantorNamesInput, sharedPrefs.getString("ap_guarantor_names", ""))
 
         binding.collateralAddressVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_collateral_verified_yes", false)
         binding.collateralAddressVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_collateral_verified_no", false)
