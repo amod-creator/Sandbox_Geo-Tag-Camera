@@ -330,6 +330,9 @@ class VisitReportPdfGenerator(private val context: Context) {
                     val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
                     val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
                     val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
+                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+                    val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
+                    val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
                     val maxWidth = signatureWidth * gapScale
                     val maxHeight = signatureHeight * gapScale
@@ -344,9 +347,20 @@ class VisitReportPdfGenerator(private val context: Context) {
         val sigY = currentY + 50f * gapScale // Increased gap from 10f to 50f for signing space
         
         if (sigBitmap != null) {
-            val sigLeft = startX
-            val sigTop = sigY - drawH - (2f * gapScale)
+            val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
+            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+            val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
+            val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
+
+            val sigLeft = startX + (signatureOffsetX * gapScale)
+            val sigTop = sigY - drawH - (2f * gapScale) + (signatureOffsetY * gapScale)
+
+            canvas.save()
+            val sigCenterX = sigLeft + drawW / 2f
+            val sigCenterY = sigTop + drawH / 2f
+            canvas.rotate(signatureRotation, sigCenterX, sigCenterY)
             canvas.drawBitmap(sigBitmap, null, RectF(sigLeft, sigTop, sigLeft + drawW, sigTop + drawH), null)
+            canvas.restore()
         }
 
         canvas.drawText("_______________________________________", startX, sigY, textBlack)

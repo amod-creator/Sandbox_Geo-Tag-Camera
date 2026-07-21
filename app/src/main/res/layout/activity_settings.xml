@@ -129,12 +129,63 @@
                         android:background="#EEEEEE"
                         android:layout_marginBottom="16dp" />
 
-                    <!-- Preview Frame -->
+                    <!-- Preview Frame representing the allocated signing space -->
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="180dp"
-                        android:background="#F5F6F7"
+                        android:layout_height="150dp"
+                        android:background="#FAFAFA"
+                        android:padding="8dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         android:layout_marginBottom="16dp">
+
+                        <!-- Top border representing last row of table -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_gravity="top"
+                            android:layout_marginTop="4dp">
+                            
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="#B0BEC5" />
+                                
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Last Line of Row of Table"
+                                android:textColor="#90A4AE"
+                                android:textSize="9sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                        <!-- Bottom border representing Signature Official text -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_gravity="bottom"
+                            android:gravity="start"
+                            android:layout_marginBottom="4dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="_______________________________________"
+                                android:textColor="#B0BEC5"
+                                android:textSize="10sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Signature of Visiting Official"
+                                android:textColor="#90A4AE"
+                                android:textStyle="bold"
+                                android:textSize="9sp"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
 
                         <!-- Card for visual boundary of signature area in PDF -->
                         <com.google.android.material.card.MaterialCardView
@@ -144,9 +195,9 @@
                             android:layout_gravity="center"
                             app:cardCornerRadius="2dp"
                             app:cardElevation="0dp"
-                            app:strokeColor="#B0BEC5"
+                            app:strokeColor="#1F3A60"
                             app:strokeWidth="1dp"
-                            app:cardBackgroundColor="#FFFFFF"
+                            app:cardBackgroundColor="#22FFFFFF"
                             android:visibility="gone"
                             tools:visibility="visible">
 
@@ -154,7 +205,7 @@
                                 android:id="@+id/signaturePreviewImage"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:padding="4dp"
+                                android:padding="2dp"
                                 android:scaleType="fitXY" />
 
                         </com.google.android.material.card.MaterialCardView>
@@ -287,6 +338,66 @@
                             android:layout_height="wrap_content"
                             android:max="150"
                             android:progress="40"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- Horizontal Shift SeekBar -->
+                        <TextView
+                            android:id="@+id/sigOffsetXLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Horizontal Shift: 0pt"
+                            android:textSize="12sp"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp" />
+
+                        <SeekBar
+                            android:id="@+id/sigOffsetXSeekBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="200"
+                            android:progress="100"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- Vertical Shift SeekBar -->
+                        <TextView
+                            android:id="@+id/sigOffsetYLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Vertical Shift: 0pt"
+                            android:textSize="12sp"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp" />
+
+                        <SeekBar
+                            android:id="@+id/sigOffsetYSeekBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="120"
+                            android:progress="60"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- Rotation / Curve SeekBar -->
+                        <TextView
+                            android:id="@+id/sigRotationLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Curve/Slant Rotation: 0°"
+                            android:textSize="12sp"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp" />
+
+                        <SeekBar
+                            android:id="@+id/sigRotationSeekBar"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="90"
+                            android:progress="45"
                             android:paddingStart="12dp"
                             android:paddingEnd="12dp" />
 

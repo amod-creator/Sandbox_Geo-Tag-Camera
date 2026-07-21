@@ -241,6 +241,9 @@ o Any discrepancies or inconsistencies identified during the verification proces
                     val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
                     val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
                     val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
+                    val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+                    val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
+                    val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
                     val maxWidth = signatureWidth
                     val maxHeight = signatureHeight
@@ -263,9 +266,20 @@ o Any discrepancies or inconsistencies identified during the verification proces
 
         // Draw signature above "Signature of Inspecting Official" if uploaded
         if (sigBitmap != null) {
-            val sigLeft = col1X
-            val sigTop = cursorY + lineGap - drawH - 2f
+            val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
+            val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)
+            val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
+            val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
+
+            val sigLeft = col1X + signatureOffsetX
+            val sigTop = cursorY + lineGap - drawH - 2f + signatureOffsetY
+
+            canvas.save()
+            val sigCenterX = sigLeft + drawW / 2f
+            val sigCenterY = sigTop + drawH / 2f
+            canvas.rotate(signatureRotation, sigCenterX, sigCenterY)
             canvas.drawBitmap(sigBitmap, null, RectF(sigLeft, sigTop, sigLeft + drawW, sigTop + drawH), null)
+            canvas.restore()
         }
 
         canvas.drawText("Signature of Inspecting Official", col1X, cursorY + lineGap, textPaint)

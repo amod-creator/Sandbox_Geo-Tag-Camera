@@ -49,9 +49,12 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("visit_mode", isChecked).apply()
         }
 
-        // Initialize dynamic signature sizing seekbars
+        // Initialize dynamic signature sizing, offsets, and rotation seekbars
         val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
         val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
+        val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", 0f).toInt()
+        val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
+        val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
 
         binding.sigWidthSeekBar.progress = widthVal
         binding.sigWidthLabel.text = "Display Width: ${widthVal}pt"
@@ -59,13 +62,21 @@ class SettingsActivity : AppCompatActivity() {
         binding.sigHeightSeekBar.progress = heightVal
         binding.sigHeightLabel.text = "Display Height: ${heightVal}pt"
 
+        binding.sigOffsetXSeekBar.progress = offsetXVal + 100
+        binding.sigOffsetXLabel.text = "Horizontal Shift: ${offsetXVal}pt"
+
+        binding.sigOffsetYSeekBar.progress = offsetYVal + 60
+        binding.sigOffsetYLabel.text = "Vertical Shift: ${offsetYVal}pt"
+
+        binding.sigRotationSeekBar.progress = rotationVal + 45
+        binding.sigRotationLabel.text = "Curve/Slant Rotation: ${rotationVal}°"
+
         binding.sigWidthSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val progressVal = maxOf(30, progress) // minimum width 30pt
                 binding.sigWidthLabel.text = "Display Width: ${progressVal}pt"
                 sharedPrefs.edit().putFloat("signature_pdf_width", progressVal.toFloat()).apply()
-                val curHeight = maxOf(10, binding.sigHeightSeekBar.progress)
-                updateLivePreviewBounds(progressVal, curHeight)
+                triggerBoundsAndTransformsUpdate()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -76,8 +87,40 @@ class SettingsActivity : AppCompatActivity() {
                 val progressVal = maxOf(10, progress) // minimum height 10pt
                 binding.sigHeightLabel.text = "Display Height: ${progressVal}pt"
                 sharedPrefs.edit().putFloat("signature_pdf_height", progressVal.toFloat()).apply()
-                val curWidth = maxOf(30, binding.sigWidthSeekBar.progress)
-                updateLivePreviewBounds(curWidth, progressVal)
+                triggerBoundsAndTransformsUpdate()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.sigOffsetXSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val offset = progress - 100
+                binding.sigOffsetXLabel.text = "Horizontal Shift: ${offset}pt"
+                sharedPrefs.edit().putFloat("signature_pdf_offset_x", offset.toFloat()).apply()
+                triggerBoundsAndTransformsUpdate()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.sigOffsetYSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val offset = progress - 60
+                binding.sigOffsetYLabel.text = "Vertical Shift: ${offset}pt"
+                sharedPrefs.edit().putFloat("signature_pdf_offset_y", offset.toFloat()).apply()
+                triggerBoundsAndTransformsUpdate()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.sigRotationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val angle = progress - 45
+                binding.sigRotationLabel.text = "Curve/Slant Rotation: ${angle}°"
+                sharedPrefs.edit().putFloat("signature_pdf_rotation", angle.toFloat()).apply()
+                triggerBoundsAndTransformsUpdate()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -159,7 +202,11 @@ class SettingsActivity : AppCompatActivity() {
                     val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
                     val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
                     val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
-                    updateLivePreviewBounds(widthVal, heightVal)
+                    val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", 0f).toInt()
+                    val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
+                    val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
+                    
+                    updateLivePreviewBounds(widthVal, heightVal, offsetXVal, offsetYVal, rotationVal)
                     return
                 }
             } catch (e: Exception) {
@@ -191,12 +238,27 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateLivePreviewBounds(widthVal: Int, heightVal: Int) {
+    private fun triggerBoundsAndTransformsUpdate() {
+        val width = maxOf(30, binding.sigWidthSeekBar.progress)
+        val height = maxOf(10, binding.sigHeightSeekBar.progress)
+        val offsetX = binding.sigOffsetXSeekBar.progress - 100
+        val offsetY = binding.sigOffsetYSeekBar.progress - 60
+        val angle = binding.sigRotationSeekBar.progress - 45
+        
+        updateLivePreviewBounds(width, height, offsetX, offsetY, angle)
+    }
+
+    private fun updateLivePreviewBounds(widthVal: Int, heightVal: Int, offsetX: Int = 0, offsetY: Int = 0, angle: Int = 0) {
         val density = resources.displayMetrics.density
         val params = binding.signaturePreviewBorderCard.layoutParams as FrameLayout.LayoutParams
         params.width = (widthVal * density).toInt()
         params.height = (heightVal * density).toInt()
         binding.signaturePreviewBorderCard.layoutParams = params
+        
+        binding.signaturePreviewBorderCard.translationX = offsetX * density
+        binding.signaturePreviewBorderCard.translationY = offsetY * density
+        binding.signaturePreviewBorderCard.rotation = angle.toFloat()
+        
         binding.signaturePreviewBorderCard.requestLayout()
     }
 }
