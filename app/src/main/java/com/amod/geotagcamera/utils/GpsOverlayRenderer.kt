@@ -13,28 +13,205 @@ import android.graphics.RectF
 import android.text.Layout
 import android.graphics.Color
 import android.graphics.Typeface
-
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
-
 
 class GpsOverlayRenderer(private val context: Context) {
     enum class LayoutMode { AUTO, HORIZONTAL, VERTICAL }
     var layoutMode: LayoutMode = LayoutMode.HORIZONTAL
 
-    private val titleTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val watermarkPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 96f
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textSize = 64f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC)
+        alpha = 220 // More opaque
     }
 
-    private val valueTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 84f
+    fun drawOnlyOverlay(
+        videoWidth: Int,
+        videoHeight: Int,
+        mapThumbnail: Bitmap?,
+        latitude: String,
+        longitude: String,
+        address: String,
+        datetime: String
+    ): Bitmap {
+        return drawOnlyOverlay(videoWidth, videoHeight, 0, mapThumbnail, latitude, longitude, address, datetime)
     }
 
-    private val backgroundPaint = Paint().apply {
-        color = Color.argb(81, 0, 0, 0) // 20% opacity black
-        style = Paint.Style.FILL
+    fun drawOnlyOverlay(
+        videoWidth: Int,
+        videoHeight: Int,
+        rotation: Int,
+        mapThumbnail: Bitmap?,
+        latitude: String,
+        longitude: String,
+        address: String,
+        datetime: String
+    ): Bitmap {
+        if (rotation == 0) {
+            val resultBitmap = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(resultBitmap)
+
+            val isPortrait = videoHeight > videoWidth
+            val globalScale = if (isPortrait) 0.9f else 0.8f
+
+            val thumbAreaRatio = if (isPortrait) 0.22f else 0.17f 
+            val textAreaRatio = 1f - thumbAreaRatio
+
+            val overlayPadding = videoWidth * 0.02f * globalScale
+            val cornerRadius = 36f * globalScale 
+
+            val headerPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = videoWidth * 0.04f * globalScale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val valuePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = videoWidth * 0.032f * globalScale
+            }
+            val wmPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = videoWidth * 0.025f * globalScale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+                alpha = 200
+            }
+
+            val overlayWidth = (if (isPortrait) 0.94f else 0.8f) * videoWidth
+            val contentInternalPadding = overlayPadding
+            val totalContentWidth = overlayWidth - (contentInternalPadding * 3)
+            val fixedThumbWidth = totalContentWidth * thumbAreaRatio
+            val textAreaWidth = totalContentWidth * textAreaRatio
+            val thumbHeight = mapThumbnail?.let { fixedThumbWidth / (it.width.toFloat() / it.height) } ?: (fixedThumbWidth * 0.8f)
+
+            val cityHeader = extractCityStateCountry(address)
+            val cleanLat = cleanCoordinate(latitude, "Lat")
+            val cleanLon = cleanCoordinate(longitude, "Long")
+            val combinedLatLon = "Lat $cleanLat°   Long $cleanLon°"
+            val lineSpacing = videoWidth * 0.008f
+
+            val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
+            val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
+            val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
+            val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
+
+            val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+            val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
+
+            val overlayBottom = videoHeight - overlayPadding
+            val overlayTop = overlayBottom - overlayHeight
+            val overlayLeft = (videoWidth - overlayWidth) / 2f
+            val overlayRight = overlayLeft + overlayWidth
+
+            val bgPaint = Paint().apply {
+                color = Color.argb(160, 0, 0, 0)
+                style = Paint.Style.FILL
+            }
+            canvas.drawRoundRect(RectF(overlayLeft, overlayTop, overlayRight, overlayBottom), cornerRadius, cornerRadius, bgPaint)
+
+            val watermark = if (isPortrait) "Portrait Mode" else "Landscape Mode"
+            val wmWidth = wmPaint.measureText(watermark)
+            canvas.drawText(watermark, overlayRight - contentInternalPadding - wmWidth, overlayBottom - contentInternalPadding, wmPaint)
+
+            mapThumbnail?.let {
+                val targetThumbWidth = fixedThumbWidth
+                val targetThumbHeight = overlayHeight - (overlayPadding * 2)
+                
+                val scaleX = targetThumbWidth / it.width
+                val scaleY = targetThumbHeight / it.height
+                val scale = max(scaleX, scaleY)
+                
+                val dx = (targetThumbWidth - it.width * scale) / 2
+                val dy = (targetThumbHeight - it.height * scale) / 2
+                
+                val thumbX = overlayLeft + contentInternalPadding
+                val thumbY = overlayTop + overlayPadding
+                
+                val thumbMatrix = Matrix()
+                thumbMatrix.postScale(scale, scale)
+                thumbMatrix.postTranslate(thumbX + dx, thumbY + dy)
+
+                canvas.save()
+                val thumbRect = RectF(thumbX, thumbY, thumbX + targetThumbWidth, thumbY + targetThumbHeight)
+                val clipPath = android.graphics.Path()
+                clipPath.addRoundRect(thumbRect, cornerRadius, cornerRadius, android.graphics.Path.Direction.CW)
+                canvas.clipPath(clipPath)
+                canvas.drawBitmap(it, thumbMatrix, Paint(Paint.FILTER_BITMAP_FLAG))
+                canvas.restore()
+
+                // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the map thumbnail
+                val badgeText = "Ad Free GPS Cam Visit Pro"
+                val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textSize = videoWidth * 0.016f * globalScale
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+                val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#1F3A60")
+                    style = Paint.Style.FILL
+                }
+                val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    style = Paint.Style.STROKE
+                    strokeWidth = 0.5f * globalScale
+                }
+
+                val textW = badgeTextPaint.measureText(badgeText)
+                val padX = 4f * globalScale
+                val padY = 2f * globalScale
+                val badgeW = textW + padX * 2
+                val badgeH = badgeTextPaint.textSize + padY * 2
+
+                val marginOffset = 3f * globalScale
+                val badgeRight = thumbX + targetThumbWidth - marginOffset
+                val badgeLeft = badgeRight - badgeW
+                val badgeTop = thumbY + marginOffset
+                val badgeBottom = badgeTop + badgeH
+
+                val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
+                val badgeRadius = 2f * globalScale
+                canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
+                canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
+                canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
+            }
+
+            val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
+            val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
+            canvas.save()
+            canvas.translate(textStartX, textStartY)
+            headerLayout.draw(canvas)
+            canvas.translate(0f, headerLayout.height.toFloat() + lineSpacing)
+            addrLayout.draw(canvas)
+            canvas.translate(0f, addrLayout.height.toFloat() + lineSpacing)
+            latLonLayout.draw(canvas)
+            canvas.translate(0f, latLonLayout.height.toFloat() + lineSpacing)
+            dateLayout.draw(canvas)
+            canvas.restore()
+
+            return resultBitmap
+        } else {
+            val finalWidth = if (rotation == 90 || rotation == 270) videoHeight else videoWidth
+            val finalHeight = if (rotation == 90 || rotation == 270) videoWidth else videoHeight
+
+            val tempBitmap = drawOnlyOverlay(finalWidth, finalHeight, 0, mapThumbnail, latitude, longitude, address, datetime)
+
+            val resultBitmap = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(resultBitmap)
+
+            val matrix = Matrix()
+            matrix.postTranslate(-finalWidth / 2f, -finalHeight / 2f)
+            matrix.postRotate(-rotation.toFloat())
+            matrix.postTranslate(videoWidth / 2f, videoHeight / 2f)
+
+            canvas.drawBitmap(tempBitmap, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
+            tempBitmap.recycle()
+
+            return resultBitmap
+        }
     }
 
     fun drawGpsOverlay(
@@ -45,8 +222,16 @@ class GpsOverlayRenderer(private val context: Context) {
         address: String,
         datetime: String
     ): Bitmap {
-        // Always use the bottom overlay style
-        return drawGpsOverlayBottom(originalBitmap, mapThumbnail, latitude, longitude, address, datetime)
+        // Determine orientation for watermark
+        val watermark = if (originalBitmap.width > originalBitmap.height) "Landscape Mode" else "Portrait Mode"
+        return drawGpsOverlayBottom(originalBitmap, mapThumbnail, latitude, longitude, address, datetime, watermark)
+    }
+
+    /**
+     * Clean labels from coordinates (remove "Lat:", "Lat Lat:", etc.)
+     */
+    private fun cleanCoordinate(coord: String, prefix: String): String {
+        return coord.replace(Regex("(?i)${prefix}:?"), "").replace(Regex("(?i)Lat:?"), "").replace(Regex("(?i)Lon:?"), "").replace(Regex("(?i)Long:?"), "").trim()
     }
 
     /**
@@ -74,50 +259,53 @@ class GpsOverlayRenderer(private val context: Context) {
         latitude: String,
         longitude: String,
         address: String,
-        datetime: String
+        datetime: String,
+        watermark: String = ""
     ): Bitmap {
         val resultBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(resultBitmap)
 
-        val overlayPadding = 24f
-        val cornerRadius = 28f  // Rounded corners matching live card
+        val isPortrait = resultBitmap.height > resultBitmap.width
+        val globalScale = if (isPortrait) 0.9f else 0.8f
 
-        // Bold header paint for city/state
+        // Further reduced area ratio
+        val thumbAreaRatio = if (isPortrait) 0.22f else 0.17f 
+        val textAreaRatio = 1f - thumbAreaRatio
+
+        val overlayPadding = resultBitmap.width * 0.02f * globalScale
+        val cornerRadius = 36f * globalScale 
+
         val headerPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 96f
+            textSize = resultBitmap.width * 0.04f * globalScale
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isSubpixelText = true
-            isLinearText = true
         }
-        val valuePaint = valueTextPaint.apply {
-            isSubpixelText = true
-            isLinearText = true
+        val valuePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = resultBitmap.width * 0.032f * globalScale
         }
-
-        val isLandscape = resultBitmap.width > resultBitmap.height
-        
-        // Calculate Overlay Width
-        val overlayWidth = if (isLandscape) {
-            resultBitmap.width * 0.65f
-        } else {
-            resultBitmap.width.toFloat() - (overlayPadding * 2)
+        val wmPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = resultBitmap.width * 0.025f * globalScale
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+            alpha = 200
         }
 
-        val thumbWidthRatio = 0.3f
-        val textWidthRatio = 0.7f
+        val overlayWidth = (if (isPortrait) 0.94f else 0.8f) * resultBitmap.width
         
         val contentInternalPadding = overlayPadding
-        val totalContentWidth = overlayWidth - (contentInternalPadding * 2)
+        val totalContentWidth = overlayWidth - (contentInternalPadding * 3)
         
-        val fixedThumbWidth = totalContentWidth * thumbWidthRatio
-        val textAreaWidth = totalContentWidth * textWidthRatio
-        val thumbHeight = mapThumbnail?.let { fixedThumbWidth / (it.width.toFloat() / it.height.toFloat()) } ?: 0f
+        val fixedThumbWidth = totalContentWidth * thumbAreaRatio
+        val textAreaWidth = totalContentWidth * textAreaRatio
+        val thumbHeight = mapThumbnail?.let { fixedThumbWidth / (it.width.toFloat() / it.height) } ?: (fixedThumbWidth * 0.8f)
 
-        // New text layout: Header, Address, combined LatLon, Date
+        // Balanced and Clean Formatting (Image 1 style)
         val cityHeader = extractCityStateCountry(address)
-        val combinedLatLon = "Lat $latitude°   Long $longitude°"
-        val lineSpacing = 8f
+        val cleanLat = cleanCoordinate(latitude, "Lat")
+        val cleanLon = cleanCoordinate(longitude, "Long")
+        val combinedLatLon = "Lat $cleanLat°   Long $cleanLon°"
+        val lineSpacing = resultBitmap.width * 0.008f
 
         val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
         val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
@@ -129,35 +317,87 @@ class GpsOverlayRenderer(private val context: Context) {
 
         val overlayBottom = resultBitmap.height - overlayPadding
         val overlayTop = overlayBottom - overlayHeight
-        
-        val overlayLeft = if (isLandscape) {
-            (resultBitmap.width - overlayWidth) / 2f
-        } else {
-            overlayPadding
-        }
+        val overlayLeft = (resultBitmap.width - overlayWidth) / 2f
         val overlayRight = overlayLeft + overlayWidth
 
-        val bgPaint = backgroundPaint
-        val rect = RectF(overlayLeft, overlayTop, overlayRight, overlayBottom)
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint)
+        // Draw Translucent Dark Background (Image 1 style)
+        val bgPaint = Paint().apply {
+            color = Color.argb(160, 0, 0, 0) // Balanced dark gray, semi-transparent
+            style = Paint.Style.FILL
+        }
+        canvas.drawRoundRect(RectF(overlayLeft, overlayTop, overlayRight, overlayBottom), cornerRadius, cornerRadius, bgPaint)
 
-        // Draw map thumbnail with rounded corners
-        mapThumbnail?.let {
-            val scaledThumb = Bitmap.createScaledBitmap(it, fixedThumbWidth.toInt(), thumbHeight.toInt(), true)
-            val thumbX = overlayLeft + contentInternalPadding
-            val thumbY = overlayTop + (overlayHeight - thumbHeight) / 2
-            
-            // Clip to rounded rect for thumbnail
-            val thumbRect = RectF(thumbX, thumbY, thumbX + fixedThumbWidth, thumbY + thumbHeight)
-            canvas.save()
-            val clipPath = android.graphics.Path()
-            clipPath.addRoundRect(thumbRect, 12f, 12f, android.graphics.Path.Direction.CW)
-            canvas.clipPath(clipPath)
-            canvas.drawBitmap(scaledThumb, thumbX, thumbY, null)
-            canvas.restore()
+        // Draw Watermark inside overlay for better balance - Move to Bottom Right
+        if (watermark.isNotEmpty()) {
+            val wmWidth = wmPaint.measureText(watermark)
+            canvas.drawText(watermark, overlayRight - contentInternalPadding - wmWidth, overlayBottom - contentInternalPadding, wmPaint)
         }
 
-        // Draw text: Header → Address → LatLon → Date
+        // Thumbnail - Dynamically matches background height
+        mapThumbnail?.let {
+            val targetThumbWidth = fixedThumbWidth
+            val targetThumbHeight = overlayHeight - (overlayPadding * 2)
+            
+            // Center-Crop Scaling Logic: fill the available space without stretching
+            val scaleX = targetThumbWidth / it.width
+            val scaleY = targetThumbHeight / it.height
+            val scale = max(scaleX, scaleY)
+            
+            val dx = (targetThumbWidth - it.width * scale) / 2
+            val dy = (targetThumbHeight - it.height * scale) / 2
+            
+            val thumbX = overlayLeft + contentInternalPadding
+            val thumbY = overlayTop + overlayPadding
+            
+            val thumbMatrix = Matrix()
+            thumbMatrix.postScale(scale, scale)
+            thumbMatrix.postTranslate(thumbX + dx, thumbY + dy)
+
+            canvas.save()
+            val thumbRect = RectF(thumbX, thumbY, thumbX + targetThumbWidth, thumbY + targetThumbHeight)
+            val clipPath = android.graphics.Path()
+            clipPath.addRoundRect(thumbRect, cornerRadius, cornerRadius, android.graphics.Path.Direction.CW)
+            canvas.clipPath(clipPath)
+            canvas.drawBitmap(it, thumbMatrix, Paint(Paint.FILTER_BITMAP_FLAG))
+            canvas.restore()
+
+            // Draw "Ad Free GPS Cam Visit Pro" badge at the top-right of the map thumbnail
+            val badgeText = "Ad Free GPS Cam Visit Pro"
+            val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = resultBitmap.width * 0.016f * globalScale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#1F3A60")
+                style = Paint.Style.FILL
+            }
+            val badgeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = 0.5f * globalScale
+            }
+
+            val textW = badgeTextPaint.measureText(badgeText)
+            val padX = 4f * globalScale
+            val padY = 2f * globalScale
+            val badgeW = textW + padX * 2
+            val badgeH = badgeTextPaint.textSize + padY * 2
+
+            val marginOffset = 3f * globalScale
+            val badgeRight = thumbX + targetThumbWidth - marginOffset
+            val badgeLeft = badgeRight - badgeW
+            val badgeTop = thumbY + marginOffset
+            val badgeBottom = badgeTop + badgeH
+
+            val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
+            val badgeRadius = 2f * globalScale
+            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
+            canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgeStrokePaint)
+            canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
+        }
+
+        // Draw text block
         val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
         val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
         canvas.save()
@@ -174,20 +414,6 @@ class GpsOverlayRenderer(private val context: Context) {
         return resultBitmap
     }
 
-    private fun drawText(canvas: Canvas, text: String, x: Int, y: Int, paint: TextPaint) {
-        val maxWidth = (canvas.width - x - 16).toFloat()
-        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, maxWidth.toInt())
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(0f, 1f)
-            .setIncludePad(false)
-            .build()
-
-        canvas.save()
-        canvas.translate(x.toFloat(), y.toFloat())
-        layout.draw(canvas)
-        canvas.restore()
-    }
-
     fun createPdfWithOverlay(
         imageBitmap: Bitmap,
         outputFile: File,
@@ -197,101 +423,17 @@ class GpsOverlayRenderer(private val context: Context) {
         address: String,
         datetime: String
     ) {
-        // Create high-quality paints for PDF
-        val pdfTitleTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = context.resources.getDimensionPixelSize(R.dimen.gps_overlay_title_size).toFloat() * 2  // Double size for PDF
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        }
-
-        val pdfValueTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = context.resources.getDimensionPixelSize(R.dimen.gps_overlay_value_size).toFloat() * 2  // Double size for PDF
-        }
-
-        // Create a higher resolution bitmap for PDF
-        val scale = 2.0f  // Scale factor for higher resolution
-        val scaledWidth = (imageBitmap.width * scale).toInt()
-        val scaledHeight = (imageBitmap.height * scale).toInt()
-
-        val highResBitmap = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(highResBitmap)
-
-        // Scale the canvas for high resolution
-        canvas.scale(scale, scale)
-
-        // Draw the original image
-        val matrix = Matrix()
-        matrix.setScale(scale, scale)
-        canvas.drawBitmap(imageBitmap, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
-
-        // Draw overlay with high-quality settings
-        val overlayPadding = 24f * scale
-        val cornerRadius = 16f * scale
-        val rect = RectF(
-            overlayPadding,
-            overlayPadding,
-            highResBitmap.width - overlayPadding,
-            overlayPadding + (highResBitmap.height * 0.25f)
-        )
-
-        // Draw background with anti-aliasing
-        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(153, 0, 0, 0)
-            style = Paint.Style.FILL
-        }
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint)
-
-        // Draw high-resolution thumbnail
-        mapThumbnail?.let {
-            val desiredThumbHeight = rect.height() - overlayPadding * 2
-            val thumbWidth = desiredThumbHeight * (it.width.toFloat() / it.height)
-            val scaledThumb = Bitmap.createScaledBitmap(
-                it,
-                (thumbWidth * 2).toInt(),
-                (desiredThumbHeight * 2).toInt(),
-                true
-            )
-            canvas.drawBitmap(scaledThumb, overlayPadding * 2, overlayPadding * 2, Paint(Paint.FILTER_BITMAP_FLAG))
-        }
-
-        // Draw text with higher quality
-        val textStartX = overlayPadding * 2 + (mapThumbnail?.let {
-            ((rect.height() - overlayPadding * 2) * (it.width.toFloat() / it.height))
-        } ?: 0f) + overlayPadding
-
-        canvas.save()
-        canvas.translate(textStartX, overlayPadding * 2)
-
-        // Draw text with increased size and quality
-        val maxTextWidth = (highResBitmap.width * 0.6f).toInt()
-        val latLayout = StaticLayout.Builder.obtain("Lat: $latitude", 0, "Lat: $latitude".length, pdfTitleTextPaint, maxTextWidth).build()
-        val lonLayout = StaticLayout.Builder.obtain("Lon: $longitude", 0, "Lon: $longitude".length, pdfTitleTextPaint, maxTextWidth).build()
-        val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, pdfValueTextPaint, maxTextWidth).build()
-        val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, pdfValueTextPaint, maxTextWidth).build()
-
-        latLayout.draw(canvas)
-        canvas.translate(0f, latLayout.height.toFloat())
-        lonLayout.draw(canvas)
-        canvas.translate(0f, lonLayout.height.toFloat() + overlayPadding)
-        addrLayout.draw(canvas)
-        canvas.translate(0f, addrLayout.height.toFloat() + overlayPadding)
-        dateLayout.draw(canvas)
-        canvas.restore()
-
-        // Create PDF with high-quality bitmap
+        // High-res PDF overlay should match the look of the new balanced bitmap overlay
+        val highResBitmap = drawGpsOverlay(imageBitmap, mapThumbnail, latitude, longitude, address, datetime)
+        
         val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(scaledWidth, scaledHeight, 1).create()
+        val pageInfo = PdfDocument.PageInfo.Builder(highResBitmap.width, highResBitmap.height, 1).create()
         val page = document.startPage(pageInfo)
-
-        // Draw the high-resolution bitmap to PDF
         page.canvas.drawBitmap(highResBitmap, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
-
         document.finishPage(page)
         document.writeTo(outputFile.outputStream())
         document.close()
-
-        // Clean up
+        
         highResBitmap.recycle()
     }
 }

@@ -423,7 +423,7 @@ class MainActivity : AppCompatActivity() {
             overlayWrapper.translationY = 0f // Reset Y translation as well
 
             // 1. Adjust Map Size (Further reduction for Landscape)
-            findViewById<ImageView>(R.id.liveMapThumbnail)?.let { mv ->
+            findViewById<View>(R.id.liveMapThumbnailContainer)?.let { mv ->
                 val mapMinH = if (isLandscape) (50 * density * globalScale).toInt() else (80 * density * globalScale).toInt()
                 mv.minimumHeight = mapMinH
                 val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT).apply {

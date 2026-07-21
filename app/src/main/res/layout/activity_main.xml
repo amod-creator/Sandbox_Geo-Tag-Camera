@@ -17,41 +17,47 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/buttonLayout"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:padding="16dp"
+        android:paddingBottom="32dp"
+        android:paddingTop="16dp"
         android:background="@android:color/transparent"
-        android:layout_marginBottom="32dp"
-        android:elevation="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent">
 
-        <ImageButton
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/gallery_button"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginEnd="12dp"
-            android:background="@android:color/transparent"
+            android:layout_marginStart="12dp"
+            android:padding="2dp"
             android:src="@drawable/ic_gallery"
-            app:tint="@android:color/white"
-            android:contentDescription="@string/gallery"
-            android:tooltipText="@string/gallery" />
+            android:scaleType="centerCrop"
+            android:background="#212121"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:strokeWidth="1.5dp"
+            app:strokeColor="#FFFFFF"
+            app:shapeAppearanceOverlay="@style/CircleShape"
+            app:layout_constraintBottom_toBottomOf="@+id/camera_capture_button"
+            app:layout_constraintTop_toTopOf="@+id/camera_capture_button"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/prepare_button"
+            app:layout_constraintHorizontal_chainStyle="spread" />
 
         <ImageButton
             android:id="@+id/prepare_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="12dp"
-            android:background="@android:color/transparent"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_prepare_report"
             app:tint="@android:color/white"
-            android:contentDescription="@string/prepare_report"
-            android:tooltipText="@string/prepare_report" />
+            app:layout_constraintBottom_toBottomOf="@+id/camera_capture_button"
+            app:layout_constraintTop_toTopOf="@+id/camera_capture_button"
+            app:layout_constraintStart_toEndOf="@id/gallery_button"
+            app:layout_constraintEnd_toStartOf="@id/camera_capture_button" />
 
         <ImageButton
             android:id="@+id/camera_capture_button"
@@ -59,39 +65,48 @@
             android:layout_height="72dp"
             android:background="@android:color/transparent"
             android:src="@drawable/capture_button_bg"
-            app:tint="@android:color/white"
-            android:contentDescription="@string/capture_photo" />
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/prepare_button"
+            app:layout_constraintEnd_toStartOf="@id/video_record_button" />
 
         <ImageButton
             android:id="@+id/video_record_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:background="@android:color/transparent"
-            android:src="@android:drawable/presence_video_online"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_video_record"
             app:tint="@android:color/white"
-            android:contentDescription="@string/record_video" />
+            android:scaleType="fitCenter"
+            app:layout_constraintBottom_toBottomOf="@+id/camera_capture_button"
+            app:layout_constraintTop_toTopOf="@+id/camera_capture_button"
+            app:layout_constraintStart_toEndOf="@id/camera_capture_button"
+            app:layout_constraintEnd_toStartOf="@id/collage_button" />
 
         <ImageButton
             android:id="@+id/collage_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:background="@android:color/transparent"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_collage"
             app:tint="@android:color/white"
-            android:contentDescription="@string/collage"
-            android:tooltipText="@string/collage" />
+            app:layout_constraintBottom_toBottomOf="@+id/camera_capture_button"
+            app:layout_constraintTop_toTopOf="@+id/camera_capture_button"
+            app:layout_constraintStart_toEndOf="@id/video_record_button"
+            app:layout_constraintEnd_toStartOf="@id/switch_camera_button" />
 
         <ImageButton
             android:id="@+id/switch_camera_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="32dp"
-            android:background="@android:color/transparent"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_camera_switch"
-            android:contentDescription="@string/switch_camera" />
-    </LinearLayout>
+            app:layout_constraintBottom_toBottomOf="@+id/camera_capture_button"
+            app:layout_constraintTop_toTopOf="@+id/camera_capture_button"
+            app:layout_constraintStart_toEndOf="@id/collage_button"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
 
     <!-- Zoom Buttons (1x / 2x) positioned above the button bar -->
     <LinearLayout
@@ -107,12 +122,27 @@
         android:layout_marginBottom="4dp">
 
         <TextView
+            android:id="@+id/zoomButton06x"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text=".6x"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/zoom_button_inactive_bg"
+            android:layout_marginEnd="8dp"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
             android:id="@+id/zoomButton1x"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:gravity="center"
             android:text="1x"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/zoom_button_active_bg"
@@ -122,11 +152,11 @@
 
         <TextView
             android:id="@+id/zoomButton2x"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:gravity="center"
             android:text="2x"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/zoom_button_inactive_bg"
@@ -166,24 +196,57 @@
                 android:gravity="center_vertical"
                 android:baselineAligned="false">
 
-                <ImageView
-                    android:id="@+id/liveMapThumbnail"
+                <FrameLayout
+                    android:id="@+id/liveMapThumbnailContainer"
                     android:layout_width="0dp"
-                    android:layout_weight="0.8"
-                    android:layout_height="wrap_content"
-                    android:minHeight="80dp"
-                    android:adjustViewBounds="true"
-                    android:scaleType="centerCrop"
-                    android:contentDescription="@string/live_map_thumbnail"
-                    android:background="@drawable/rounded_corners"
-                    android:clickable="true"
-                    android:focusable="true"/>
+                    android:layout_weight="0.7"
+                    android:layout_height="match_parent"
+                    android:minHeight="80dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/liveMapThumbnail"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:adjustViewBounds="true"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="@string/live_map_thumbnail"
+                        app:shapeAppearanceOverlay="@style/RoundedMapCorners"
+                        android:clickable="true"
+                        android:focusable="true"/>
+
+                    <!-- Badge overlay on top right of the map -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:layout_margin="3dp"
+                        app:cardCornerRadius="3dp"
+                        app:cardElevation="2dp"
+                        app:cardBackgroundColor="#1F3A60"
+                        app:strokeColor="#FFFFFF"
+                        app:strokeWidth="0.5dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ad Free GPS Cam Visit Pro"
+                            android:textColor="#FFFFFF"
+                            android:textSize="7sp"
+                            android:textStyle="bold"
+                            android:paddingStart="4dp"
+                            android:paddingEnd="4dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp" />
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </FrameLayout>
 
                 <LinearLayout
                     android:id="@+id/gpsOverlayTextContainer"
                     android:orientation="vertical"
                     android:layout_width="0dp"
-                    android:layout_weight="1.2"
+                    android:layout_weight="1.3"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp">
 
@@ -203,7 +266,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="4dp"
-                        android:maxLines="3"
+                        android:maxLines="4"
                         android:lineSpacingExtra="2dp"
                         android:breakStrategy="balanced"
                         android:singleLine="false"
