@@ -85,12 +85,35 @@
                         app:thumbTint="@color/teal_700"
                         app:trackTint="@color/teal_200" />
 
+                    <View
+                        android:id="@+id/visitModeDivider"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#EEEEEE"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="16dp"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/signatureRequiredSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Signature Required"
+                        android:textColor="#222222"
+                        android:textSize="16sp"
+                        app:thumbTint="@color/teal_700"
+                        app:trackTint="@color/teal_200"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Card 2: Signature Settings -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/signatureSettingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
@@ -293,8 +316,8 @@
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/clear_signature"
+                            android:layout_weight="1.2"
+                            android:text="Clear"
                             android:textColor="#D32F2F"
                             app:strokeColor="#D32F2F"
                             android:visibility="gone"

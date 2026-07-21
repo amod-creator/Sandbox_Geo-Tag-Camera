@@ -233,12 +233,13 @@ o Any discrepancies or inconsistencies identified during the verification proces
         var sigBitmap: Bitmap? = null
         var drawW = 0f
         var drawH = 0f
-        if (signatureFile.exists()) {
+        val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
+        val signatureRequired = sharedPrefs.getBoolean("signature_required", false)
+        if (signatureRequired && signatureFile.exists()) {
             try {
                 val tempBitmap = BitmapFactory.decodeFile(signatureFile.absolutePath)
                 if (tempBitmap != null) {
                     sigBitmap = tempBitmap
-                    val sharedPrefs = context.getSharedPreferences("com.amod.geotagcamera.PREFERENCES", android.content.Context.MODE_PRIVATE)
                     val signatureWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
                     val signatureHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
                     val signatureOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", 0f)

@@ -44,10 +44,22 @@ class SettingsActivity : AppCompatActivity() {
         // Shared preferences setup for Visit Mode
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
         val currentVisitMode = sharedPrefs.getBoolean("visit_mode", false)
+        val currentSignatureRequired = sharedPrefs.getBoolean("signature_required", false)
 
         binding.visitModeSwitch.isChecked = currentVisitMode
+        binding.signatureRequiredSwitch.isChecked = currentSignatureRequired
+
+        // Initialize visibility
+        updateSwitchesVisibility()
+
         binding.visitModeSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("visit_mode", isChecked).apply()
+            updateSwitchesVisibility()
+        }
+
+        binding.signatureRequiredSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("signature_required", isChecked).apply()
+            updateSwitchesVisibility()
         }
 
         // Initialize dynamic signature sizing, offsets, and rotation seekbars
@@ -277,5 +289,27 @@ class SettingsActivity : AppCompatActivity() {
         binding.signaturePreviewBorderCard.rotation = angle.toFloat()
         
         binding.signaturePreviewBorderCard.requestLayout()
+    }
+
+    private fun updateSwitchesVisibility() {
+        val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
+        val visitModeEnabled = binding.visitModeSwitch.isChecked
+        val signatureRequiredEnabled = binding.signatureRequiredSwitch.isChecked
+        
+        // "Signature Required" divider and switch are only shown when Visit Mode is enabled
+        if (visitModeEnabled) {
+            binding.visitModeDivider.visibility = View.VISIBLE
+            binding.signatureRequiredSwitch.visibility = View.VISIBLE
+        } else {
+            binding.visitModeDivider.visibility = View.GONE
+            binding.signatureRequiredSwitch.visibility = View.GONE
+        }
+        
+        // Card 2: Signature Settings is only shown when Visit Mode is enabled AND Signature Required is enabled
+        if (visitModeEnabled && signatureRequiredEnabled) {
+            binding.signatureSettingsCard.visibility = View.VISIBLE
+        } else {
+            binding.signatureSettingsCard.visibility = View.GONE
+        }
     }
 }
