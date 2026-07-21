@@ -808,7 +808,12 @@ class MainActivity : AppCompatActivity() {
         val shutterLat = currentLocation?.latitude
         val shutterLon = currentLocation?.longitude
         val shutterAddr = findViewById<TextView>(R.id.geo_address)?.text?.toString() ?: "Address unavailable"
-        val shutterGpsText = if (shutterLat != null && shutterLon != null) "Lat %.5f, Long %.5f".format(shutterLat, shutterLon) else null
+        val shutterGpsText = if (shutterLat != null && shutterLon != null) {
+            val addrLine = if (shutterAddr.isNotBlank() && shutterAddr != "Address unavailable") "$shutterAddr\n" else ""
+            "${addrLine}Lat %.5f, Long %.5f".format(shutterLat, shutterLon)
+        } else {
+            shutterAddr
+        }
 
         val file = File(cacheDir, "$fileName.jpg")
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
