@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.amod.geotagcamera.databinding.ActivitySettingsBinding
 import android.widget.SeekBar
+import android.widget.FrameLayout
 import java.io.File
 import java.io.FileOutputStream
 
@@ -63,6 +64,8 @@ class SettingsActivity : AppCompatActivity() {
                 val progressVal = maxOf(30, progress) // minimum width 30pt
                 binding.sigWidthLabel.text = "Display Width: ${progressVal}pt"
                 sharedPrefs.edit().putFloat("signature_pdf_width", progressVal.toFloat()).apply()
+                val curHeight = maxOf(10, binding.sigHeightSeekBar.progress)
+                updateLivePreviewBounds(progressVal, curHeight)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -73,6 +76,8 @@ class SettingsActivity : AppCompatActivity() {
                 val progressVal = maxOf(10, progress) // minimum height 10pt
                 binding.sigHeightLabel.text = "Display Height: ${progressVal}pt"
                 sharedPrefs.edit().putFloat("signature_pdf_height", progressVal.toFloat()).apply()
+                val curWidth = maxOf(30, binding.sigWidthSeekBar.progress)
+                updateLivePreviewBounds(curWidth, progressVal)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -142,6 +147,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (bitmap != null) {
                     binding.signaturePreviewImage.setImageBitmap(bitmap)
                     binding.signaturePreviewImage.visibility = View.VISIBLE
+                    binding.signaturePreviewBorderCard.visibility = View.VISIBLE
                     binding.noSignatureText.visibility = View.GONE
                     binding.btnEditSignature.visibility = View.VISIBLE
                     binding.btnClearSignature.visibility = View.VISIBLE
@@ -149,6 +155,11 @@ class SettingsActivity : AppCompatActivity() {
                     binding.btnClearSpace.visibility = View.VISIBLE
                     binding.btnUploadSignature.text = "Replace"
                     binding.signatureSizeContainer.visibility = View.VISIBLE
+                    
+                    val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
+                    val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
+                    val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
+                    updateLivePreviewBounds(widthVal, heightVal)
                     return
                 }
             } catch (e: Exception) {
@@ -156,6 +167,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
         binding.signaturePreviewImage.visibility = View.GONE
+        binding.signaturePreviewBorderCard.visibility = View.GONE
         binding.noSignatureText.visibility = View.VISIBLE
         binding.btnEditSignature.visibility = View.GONE
         binding.btnClearSignature.visibility = View.GONE
@@ -177,5 +189,14 @@ class SettingsActivity : AppCompatActivity() {
             Log.e("SettingsActivity", "Error clearing signature: ${e.message}", e)
             Toast.makeText(this, "Failed to clear signature", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun updateLivePreviewBounds(widthVal: Int, heightVal: Int) {
+        val density = resources.displayMetrics.density
+        val params = binding.signaturePreviewBorderCard.layoutParams as FrameLayout.LayoutParams
+        params.width = (widthVal * density).toInt()
+        params.height = (heightVal * density).toInt()
+        binding.signaturePreviewBorderCard.layoutParams = params
+        binding.signaturePreviewBorderCard.requestLayout()
     }
 }
