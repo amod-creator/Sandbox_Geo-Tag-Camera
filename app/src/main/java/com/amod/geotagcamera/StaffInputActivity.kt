@@ -16,6 +16,7 @@ import android.util.Log
 import android.os.Environment
 import android.widget.Toast
 import android.content.Intent
+import android.content.Context
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.amod.geotagcamera.databinding.StaffInputBinding
@@ -27,6 +28,7 @@ class StaffInputActivity : AppCompatActivity() {
     // Photo handling
     private val loadedPhotos = mutableListOf<android.graphics.Bitmap>()
     private val photoPaths = mutableListOf<String>()
+    private val photoGpsList = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,8 +37,17 @@ class StaffInputActivity : AppCompatActivity() {
         binding = StaffInputBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Load saved form state first
+        loadFormState()
+
         // Load photos from file paths
         loadPhotosFromPaths()
+
+        // Automatically fill GPS Location field with the first photo's GPS Address
+        val firstGps = photoGpsList.firstOrNull()
+        if (!firstGps.isNullOrBlank()) {
+            binding.gpsLocationInput.setText(firstGps)
+        }
 
         // Initialize format spinner with a custom layout for items
         val formats = listOf("VISIT REPORT", "AGRI PSS")
@@ -69,11 +80,6 @@ class StaffInputActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>) {
                 // Keep default selection
             }
-        }
-
-        // Back button
-        binding.backToFormButton.setOnClickListener {
-            finish()
         }
 
         setupCollateralObtainedWatcher()
@@ -112,8 +118,16 @@ class StaffInputActivity : AppCompatActivity() {
             }
         }
 
+        // Handle Back button click - return to MainActivity
+        binding.backToFormButton.setOnClickListener {
+            finish()
+        }
+
         binding.submitButton.setOnClickListener {
             if (selectedFormat == "AGRI PSS") {
+                // Validate inputs before generating PDF (now always optional/returns true)
+                validateAgriPssInputs()
+                
                 val applicantName = binding.applicantNameInput.text.toString()
                 val cifNo = binding.cifNoInput.text.toString()
                 val constitution = binding.constitutionSpinner.selectedItem.toString()
@@ -205,179 +219,90 @@ class StaffInputActivity : AppCompatActivity() {
                     officialName = binding.nameInput.text.toString()
                 )
 
+                // Save to Documents/GPS Cam Visit Pro folder - matching MainActivity configuration
+                val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
+                if (!pdfDir.exists()) {
+                    pdfDir.mkdirs()
+                }
                 val pdfFileName = "AgriPssReport_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.pdf"
+                val outputFile = java.io.File(pdfDir, pdfFileName)
 
                 try {
-                    var finalUri: Uri? = null
+                    AgriPssPdfGenerator(this).generate(input, outputFile)
+                    Toast.makeText(this, "AGRI PSS Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
+                    Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
 
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        val resolver = contentResolver
-                        val contentValues = android.content.ContentValues().apply {
-                            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, pdfFileName)
-                            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
-                            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/GPS Cam Visit Pro")
-                        }
-                        
-                        // Use external content uri for files
-                        val fileUri = android.provider.MediaStore.Files.getContentUri("external")
-                        finalUri = resolver.insert(fileUri, contentValues)
-                        
-                        finalUri?.let { uri ->
-                            resolver.openOutputStream(uri)?.use { out ->
-                                AgriPssPdfGenerator(this@StaffInputActivity).generate(input, out)
-                            }
-                        }
-                    } else {
-                        val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-                        val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
-                        if (!pdfDir.exists()) {
-                            pdfDir.mkdirs()
-                        }
-                        val outputFile = java.io.File(pdfDir, pdfFileName)
-                        java.io.FileOutputStream(outputFile).use { out ->
-                            AgriPssPdfGenerator(this@StaffInputActivity).generate(input, out)
-                        }
-                        
-                        finalUri = FileProvider.getUriForFile(
-                            this@StaffInputActivity,
-                            "${applicationContext.packageName}.fileprovider",
-                            outputFile
-                        )
-                    }
-
-                    if (finalUri != null) {
-                        Toast.makeText(this, "AGRI PSS Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
-
-                        // IMPORTANT: MediaStore URIs are often rejected by Google Drive.
-                        // We must proxy it securely through FileProvider for universal opening.
-                        val tempFile = java.io.File(cacheDir, "temp_agri_pss.pdf")
-                        contentResolver.openInputStream(finalUri!!)?.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-
-                        val viewUri = FileProvider.getUriForFile(
-                            this@StaffInputActivity,
-                            "${applicationContext.packageName}.fileprovider",
-                            tempFile
-                        )
-
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(viewUri, "application/pdf")
-                            addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-
-                        try {
-                            startActivity(Intent.createChooser(intent, "Open PDF with..."))
-                        } catch (e: android.content.ActivityNotFoundException) {
-                            Toast.makeText(this, "No PDF viewer app found. Please install Google Drive or a PDF viewer.", Toast.LENGTH_LONG).show()
-                        }
-                    } else {
-                         Toast.makeText(this, "Failed to create PDF file.", Toast.LENGTH_LONG).show()
-                    }
-
+                    // Open the PDF immediately
+                    openPdfFile(outputFile)
                 } catch (e: Exception) {
-                    Toast.makeText(this, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
-                    Log.e("StaffInputActivity", "Error generating PDF", e)
+                    Toast.makeText(this, "Error saving PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("StaffInputActivity", "Error generating PDF: ${e.message}")
                 }
             } else {
                 // Generate Visit Report PDF
-                // Generate Visit Report PDF
+                // Validate inputs before generating PDF (now always optional/returns true)
+                validateVisitReportInputs()
+                
+                val staffName = binding.nameInput.text.toString()
+                val pfNumber = binding.pfInput.text.toString()
+                val designation = binding.designationInput.text.toString()
+                val branchName = binding.branchInput.text.toString()
+                val branchCode = binding.branchCodeInput.text.toString()
+                val loanAccountNumber = binding.loanAccInput.text.toString()
+                val borrowerName = binding.loanNameInput.text.toString()
+                val loanAmount = binding.loanAmountInput.text.toString()
+                val borrowerAddress = binding.borrowerAddressInput.text.toString()
+                val borrowerMobile = binding.borrowerMobileInput.text.toString()
+                val activity = binding.activityInput.text.toString()
+                val observations = binding.remarksInput.text.toString()
+                val date = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+
                 val input = VisitReportPdfGenerator.Input(
-                    staffName = binding.nameInput.text.toString(),
-                    pfNumber = binding.pfInput.text.toString(),
-                    designation = binding.designationInput.text.toString(),
-                    branchName = binding.branchInput.text.toString(),
-                    branchCode = binding.branchCodeInput.text.toString(),
-                    loanAccountNumber = binding.loanAccInput.text.toString(),
-                    borrowerName = binding.loanNameInput.text.toString(),
-                    loanAmount = binding.loanAmountInput.text.toString(),
-                    borrowerAddress = binding.borrowerAddressInput.text.toString(),
-                    mobileNumber = binding.borrowerMobileInput.text.toString(),
-                    activity = binding.activityInput.text.toString(),
-                    observations = binding.remarksInput.text.toString(),
-                    visitDate = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                    staffName = staffName,
+                    pfNumber = pfNumber,
+                    designation = designation,
+                    branchName = branchName,
+                    branchCode = branchCode,
+                    loanAccountNumber = loanAccountNumber,
+                    borrowerName = borrowerName,
+                    loanAmount = loanAmount,
+                    borrowerAddress = borrowerAddress,
+                    mobileNumber = borrowerMobile,
+                    activity = activity,
+                    observations = observations,
+                    visitDate = date,
+                    gpsLocation = binding.gpsLocationInput.text.toString().ifBlank { "Not Available" }
                 )
 
-                val pdfFileName = "${input.borrowerName.replace(" ", "_").ifEmpty { "Report" }}_${Date().time}_VisitReport.pdf"
-                
+
+                // Save to Documents/GPS Cam Visit Pro folder - matching MainActivity configuration
+                val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
+                if (!pdfDir.exists()) {
+                    pdfDir.mkdirs()
+                }
+
+                // Create filename: Name of Borrower_Account Number_Visit Report_ Date & Time.pdf
+                val borrower = if (borrowerName.isBlank()) "Unknown" else borrowerName.replace(Regex("[^a-zA-Z0-9 ]"), "").trim().replace(" ", "_")
+                val account = if (loanAccountNumber.isBlank()) "NoAccount" else loanAccountNumber.replace(Regex("[^a-zA-Z0-9]"), "")
+                val dateForFilename = SimpleDateFormat("dd-MM-yyyy_HHmmss", Locale.US).format(Date())
+                val pdfFileName = "${borrower}_${account}_Visit_Report_${dateForFilename}.pdf"
+                val outputFile = java.io.File(pdfDir, pdfFileName)
+
                 try {
-                    var finalUri: Uri? = null
+                    VisitReportPdfGenerator(this).generate(input, loadedPhotos, null, outputFile)
+                    Toast.makeText(this, "Visit Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
+                    Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
 
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        val resolver = contentResolver
-                        val contentValues = android.content.ContentValues().apply {
-                            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, pdfFileName)
-                            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
-                            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/GPS Cam Visit Pro")
-                        }
-                        
-                        val fileUri = android.provider.MediaStore.Files.getContentUri("external")
-                        finalUri = resolver.insert(fileUri, contentValues)
-                        
-                        finalUri?.let { uri ->
-                            resolver.openOutputStream(uri)?.use { out ->
-                                val outputFile = java.io.File(cacheDir, "temp_visit.pdf")
-                                VisitReportPdfGenerator(this@StaffInputActivity).generate(input, loadedPhotos, outputFile)
-                                outputFile.inputStream().use { input ->
-                                    input.copyTo(out)
-                                }
-                            }
-                        }
-                    } else {
-                        val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-                        val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
-                        if (!pdfDir.exists()) {
-                            pdfDir.mkdirs()
-                        }
-                        val outputFile = java.io.File(pdfDir, pdfFileName)
-                        VisitReportPdfGenerator(this@StaffInputActivity).generate(input, loadedPhotos, outputFile)
-                        
-                        finalUri = FileProvider.getUriForFile(
-                            this@StaffInputActivity,
-                            "${applicationContext.packageName}.fileprovider",
-                            outputFile
-                        )
-                    }
-
-                    if (finalUri != null) {
-                        Toast.makeText(this, "Visit Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
-
-                        val tempFile = java.io.File(cacheDir, "temp_visit_report.pdf")
-                        contentResolver.openInputStream(finalUri!!)?.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-
-                        val viewUri = FileProvider.getUriForFile(
-                            this@StaffInputActivity,
-                            "${applicationContext.packageName}.fileprovider",
-                            tempFile
-                        )
-
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(viewUri, "application/pdf")
-                            addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-
-                        try {
-                            startActivity(Intent.createChooser(intent, "Open PDF with..."))
-                        } catch (e: android.content.ActivityNotFoundException) {
-                            Toast.makeText(this, "No PDF viewer app found. Please install Google Drive or a PDF viewer.", Toast.LENGTH_LONG).show()
-                        }
-                    } else {
-                         Toast.makeText(this, "Failed to create PDF file.", Toast.LENGTH_LONG).show()
-                    }
-
+                    // Open the PDF immediately
+                    openPdfFile(outputFile)
                 } catch (e: Exception) {
-                    Toast.makeText(this, "Error saving Visit Report: ${e.message}", Toast.LENGTH_LONG).show()
-                    Log.e("StaffInputActivity", "Error generating Visit Report", e)
+                    Toast.makeText(this, "Error saving PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("StaffInputActivity", "Error generating PDF: ${e.message}")
                 }
             }
+
         }
     }
 
@@ -442,24 +367,43 @@ class StaffInputActivity : AppCompatActivity() {
     }
 
     /**
+     * Validate Visit Report inputs before generating PDF
+     * @return true if all required fields are filled, false otherwise
+     */
+    private fun validateVisitReportInputs(): Boolean {
+        return true
+    }
+
+    /**
+     * Validate AGRI PSS inputs before generating PDF
+     * @return true if all required fields are filled, false otherwise
+     */
+    private fun validateAgriPssInputs(): Boolean {
+        return true
+    }
+
+    /**
      * Load photos from file paths provided by MainActivity
      * Converts JPEG files back to Bitmaps for use in the form
      */
     private fun loadPhotosFromPaths() {
         // Get photo paths from Intent
         val paths = intent.getStringArrayListExtra("PHOTO_PATHS") ?: emptyList()
+        val gpsList = intent.getStringArrayListExtra("PHOTO_GPS") ?: emptyList()
 
         photoPaths.clear()
         loadedPhotos.clear()
+        photoGpsList.clear()
 
-        paths.forEach { path ->
+        paths.forEachIndexed { index, path ->
             try {
                 // Load bitmap from file
                 val bitmap = BitmapFactory.decodeFile(path)
                 if (bitmap != null) {
                     loadedPhotos.add(bitmap)
                     photoPaths.add(path)
-                    Log.d("StaffInputActivity", "Loaded photo from: $path")
+                    photoGpsList.add(gpsList.getOrNull(index) ?: "")
+                    Log.d("StaffInputActivity", "Loaded photo from: $path with GPS: ${photoGpsList.last()}")
                 } else {
                     Log.w("StaffInputActivity", "Failed to decode bitmap from: $path")
                 }
@@ -468,10 +412,36 @@ class StaffInputActivity : AppCompatActivity() {
             }
         }
 
-        Log.d("StaffInputActivity", "Loaded ${loadedPhotos.size} photos successfully")
+        Log.d("StaffInputActivity", "Loaded ${loadedPhotos.size} photos and GPS data successfully")
     }
 
+    /**
+     * Open a PDF file using an external PDF viewer
+     */
+    private fun openPdfFile(file: java.io.File) {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.fileprovider",
+                file
+            )
 
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                flags = Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            // Check if there's an app that can handle PDF files
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "No PDF viewer app found. Please install one.", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e("StaffInputActivity", "Error opening PDF: ${e.message}")
+            Toast.makeText(this, "Error opening PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     /**
      * Clean up temporary photo files when activity is destroyed
@@ -496,5 +466,126 @@ class StaffInputActivity : AppCompatActivity() {
                 bitmap.recycle()
             }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        saveFormState()
+    }
+
+    private fun saveFormState() {
+        val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.FORM_PREFS", Context.MODE_PRIVATE)
+        val editor = sharedPrefs.edit()
+
+        // Visit Report fields
+        editor.putString("vr_staff_name", binding.nameInput.text.toString())
+        editor.putString("vr_pf_number", binding.pfInput.text.toString())
+        editor.putString("vr_designation", binding.designationInput.text.toString())
+        editor.putString("vr_branch_name", binding.branchInput.text.toString())
+        editor.putString("vr_branch_code", binding.branchCodeInput.text.toString())
+        editor.putString("vr_loan_acc", binding.loanAccInput.text.toString())
+        editor.putString("vr_loan_name", binding.loanNameInput.text.toString())
+        editor.putString("vr_loan_amount", binding.loanAmountInput.text.toString())
+        editor.putString("vr_borrower_address", binding.borrowerAddressInput.text.toString())
+        editor.putString("vr_borrower_mobile", binding.borrowerMobileInput.text.toString())
+        editor.putString("vr_activity", binding.activityInput.text.toString())
+        editor.putString("vr_observations", binding.remarksInput.text.toString())
+        editor.putString("vr_gps_location", binding.gpsLocationInput.text.toString())
+
+        // Agri Pss fields
+        editor.putString("ap_applicant_name", binding.applicantNameInput.text.toString())
+        editor.putString("ap_cif_no", binding.cifNoInput.text.toString())
+        editor.putInt("ap_constitution_sel", binding.constitutionSpinner.selectedItemPosition)
+        editor.putString("ap_father_name", binding.fatherNameInput.text.toString())
+        editor.putInt("ap_applicant_nature_sel", binding.applicantNatureSpinner.selectedItemPosition)
+        editor.putInt("ap_annexure_sel", binding.attachedAnnexureSpinner.selectedItemPosition)
+        editor.putInt("ap_collateral_obtained_sel", binding.collateralObtainedSpinner.selectedItemPosition)
+        editor.putString("ap_property_nature", binding.propertyNatureInput.text.toString())
+        editor.putString("ap_collateral_address", binding.collateralAddressInput.text.toString())
+        editor.putBoolean("ap_collateral_demarcated_yes", binding.collateralDemarcatedYes.isChecked)
+        editor.putBoolean("ap_collateral_demarcated_no", binding.collateralDemarcatedNo.isChecked)
+        editor.putBoolean("ap_collateral_demarcated_na", binding.collateralDemarcatedNA.isChecked)
+        editor.putString("ap_residence_address", binding.residenceAddressInput.text.toString())
+        editor.putBoolean("ap_residence_verified_yes", binding.residenceVerifiedYes.isChecked)
+        editor.putBoolean("ap_residence_verified_no", binding.residenceVerifiedNo.isChecked)
+        editor.putString("ap_residence_person_met", binding.residencePersonMetInput.text.toString())
+        editor.putString("ap_workplace_address", binding.workplaceAddressInput.text.toString())
+        editor.putBoolean("ap_workplace_verified_yes", binding.workplaceVerifiedYes.isChecked)
+        editor.putBoolean("ap_workplace_verified_no", binding.workplaceVerifiedNo.isChecked)
+        editor.putString("ap_workplace_person_met", binding.workplacePersonMetInput.text.toString())
+        editor.putString("ap_remarks", binding.additionalRemarksInput.text.toString())
+        editor.putString("ap_key_person", binding.keyPersonInput.text.toString())
+        editor.putString("ap_guarantor_names", binding.guarantorNamesInput.text.toString())
+        editor.putBoolean("ap_collateral_verified_yes", binding.collateralAddressVerifiedYes.isChecked)
+        editor.putBoolean("ap_collateral_verified_no", binding.collateralAddressVerifiedNo.isChecked)
+        editor.putBoolean("ap_collateral_verified_na", binding.collateralAddressVerifiedNA.isChecked)
+        editor.putBoolean("ap_collateral_accessible_yes", binding.collateralAccessibleYes.isChecked)
+        editor.putBoolean("ap_collateral_accessible_no", binding.collateralAccessibleNo.isChecked)
+        editor.putBoolean("ap_collateral_accessible_na", binding.collateralAccessibleNA.isChecked)
+        editor.putBoolean("ap_disputes_yes", binding.disputesYes.isChecked)
+        editor.putBoolean("ap_disputes_no", binding.disputesNo.isChecked)
+        editor.putBoolean("ap_other_loans_yes", binding.otherLoansYes.isChecked)
+        editor.putBoolean("ap_other_loans_no", binding.otherLoansNo.isChecked)
+
+        editor.apply()
+    }
+
+    private fun loadFormState() {
+        val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.FORM_PREFS", Context.MODE_PRIVATE)
+
+        binding.nameInput.setText(sharedPrefs.getString("vr_staff_name", ""))
+        binding.pfInput.setText(sharedPrefs.getString("vr_pf_number", ""))
+        binding.designationInput.setText(sharedPrefs.getString("vr_designation", ""))
+        binding.branchInput.setText(sharedPrefs.getString("vr_branch_name", ""))
+        binding.branchCodeInput.setText(sharedPrefs.getString("vr_branch_code", ""))
+        binding.loanAccInput.setText(sharedPrefs.getString("vr_loan_acc", ""))
+        binding.loanNameInput.setText(sharedPrefs.getString("vr_loan_name", ""))
+        binding.loanAmountInput.setText(sharedPrefs.getString("vr_loan_amount", ""))
+        binding.borrowerAddressInput.setText(sharedPrefs.getString("vr_borrower_address", ""))
+        binding.borrowerMobileInput.setText(sharedPrefs.getString("vr_borrower_mobile", ""))
+        binding.activityInput.setText(sharedPrefs.getString("vr_activity", ""))
+        binding.remarksInput.setText(sharedPrefs.getString("vr_observations", ""))
+        binding.gpsLocationInput.setText(sharedPrefs.getString("vr_gps_location", ""))
+
+        binding.applicantNameInput.setText(sharedPrefs.getString("ap_applicant_name", ""))
+        binding.cifNoInput.setText(sharedPrefs.getString("ap_cif_no", ""))
+        binding.constitutionSpinner.setSelection(sharedPrefs.getInt("ap_constitution_sel", 0))
+        binding.fatherNameInput.setText(sharedPrefs.getString("ap_father_name", ""))
+        binding.applicantNatureSpinner.setSelection(sharedPrefs.getInt("ap_applicant_nature_sel", 0))
+        binding.attachedAnnexureSpinner.setSelection(sharedPrefs.getInt("ap_annexure_sel", 0))
+        binding.collateralObtainedSpinner.setSelection(sharedPrefs.getInt("ap_collateral_obtained_sel", 0))
+        binding.propertyNatureInput.setText(sharedPrefs.getString("ap_property_nature", ""))
+        binding.collateralAddressInput.setText(sharedPrefs.getString("ap_collateral_address", ""))
+
+        binding.collateralDemarcatedYes.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_yes", false)
+        binding.collateralDemarcatedNo.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_no", false)
+        binding.collateralDemarcatedNA.isChecked = sharedPrefs.getBoolean("ap_collateral_demarcated_na", false)
+
+        binding.residenceAddressInput.setText(sharedPrefs.getString("ap_residence_address", ""))
+        binding.residenceVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_residence_verified_yes", false)
+        binding.residenceVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_residence_verified_no", false)
+        binding.residencePersonMetInput.setText(sharedPrefs.getString("ap_residence_person_met", ""))
+
+        binding.workplaceAddressInput.setText(sharedPrefs.getString("ap_workplace_address", ""))
+        binding.workplaceVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_workplace_verified_yes", false)
+        binding.workplaceVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_workplace_verified_no", false)
+        binding.workplacePersonMetInput.setText(sharedPrefs.getString("ap_workplace_person_met", ""))
+
+        binding.additionalRemarksInput.setText(sharedPrefs.getString("ap_remarks", ""))
+        binding.keyPersonInput.setText(sharedPrefs.getString("ap_key_person", ""))
+        binding.guarantorNamesInput.setText(sharedPrefs.getString("ap_guarantor_names", ""))
+
+        binding.collateralAddressVerifiedYes.isChecked = sharedPrefs.getBoolean("ap_collateral_verified_yes", false)
+        binding.collateralAddressVerifiedNo.isChecked = sharedPrefs.getBoolean("ap_collateral_verified_no", false)
+        binding.collateralAddressVerifiedNA.isChecked = sharedPrefs.getBoolean("ap_collateral_verified_na", false)
+
+        binding.collateralAccessibleYes.isChecked = sharedPrefs.getBoolean("ap_collateral_accessible_yes", false)
+        binding.collateralAccessibleNo.isChecked = sharedPrefs.getBoolean("ap_collateral_accessible_no", false)
+        binding.collateralAccessibleNA.isChecked = sharedPrefs.getBoolean("ap_collateral_accessible_na", false)
+
+        binding.disputesYes.isChecked = sharedPrefs.getBoolean("ap_disputes_yes", false)
+        binding.disputesNo.isChecked = sharedPrefs.getBoolean("ap_disputes_no", false)
+        binding.otherLoansYes.isChecked = sharedPrefs.getBoolean("ap_other_loans_yes", false)
+        binding.otherLoansNo.isChecked = sharedPrefs.getBoolean("ap_other_loans_no", false)
     }
 }

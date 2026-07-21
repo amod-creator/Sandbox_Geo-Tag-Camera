@@ -218,6 +218,25 @@
                 android:padding="8dp"
                 android:layout_marginBottom="16dp"/>
 
+            <!-- GPS Location / Address -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="GPS Location"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/gpsLocationInput"
+                android:hint="GPS Location/Address"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp"
+                android:gravity="top"
+                android:inputType="textMultiLine"
+                android:background="?android:attr/editTextBackground"
+                android:padding="8dp"
+                android:layout_marginBottom="16dp"/>
+
         </LinearLayout>
 
         <!-- AGRI PSS Layout -->
