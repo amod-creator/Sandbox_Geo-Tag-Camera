@@ -242,7 +242,7 @@
                                     android:background="#B0BEC5"
                                     android:layout_marginTop="2dp" />
 
-                                <TextView
+                                 <TextView
                                     android:id="@+id/sigPreviewLabel"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
@@ -251,33 +251,6 @@
                                     android:textStyle="bold"
                                     android:textSize="9sp"
                                     android:layout_marginTop="2dp" />
-
-                                <TextView
-                                    android:id="@+id/sigPreviewStaffName"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="(Amod Kumar)"
-                                    android:textColor="#90A4AE"
-                                    android:textSize="8sp"
-                                    android:layout_marginTop="1dp" />
-
-                                <TextView
-                                    android:id="@+id/sigPreviewDesignation"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Designation: Chief Manager"
-                                    android:textColor="#90A4AE"
-                                    android:textSize="8sp"
-                                    android:layout_marginTop="1dp" />
-
-                                <TextView
-                                    android:id="@+id/sigPreviewDate"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Date: 21-07-2026"
-                                    android:textColor="#90A4AE"
-                                    android:textSize="8sp"
-                                    android:layout_marginTop="1dp" />
                             </LinearLayout>
 
                         </LinearLayout>
@@ -431,8 +404,8 @@
                             android:id="@+id/sigOffsetXSeekBar"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:max="200"
-                            android:progress="100"
+                            android:max="500"
+                            android:progress="250"
                             android:paddingStart="12dp"
                             android:paddingEnd="12dp"
                             android:layout_marginBottom="12dp" />

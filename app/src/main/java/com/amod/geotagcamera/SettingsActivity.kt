@@ -104,7 +104,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.sigHeightSeekBar.progress = heightVal
         binding.sigHeightLabel.text = "Display Height: ${heightVal}pt"
 
-        binding.sigOffsetXSeekBar.progress = offsetXVal + 100
+        binding.sigOffsetXSeekBar.progress = offsetXVal + 250
         binding.sigOffsetXLabel.text = "Horizontal Shift: ${offsetXVal}pt"
 
         binding.sigOffsetYSeekBar.progress = offsetYVal + 60
@@ -137,7 +137,7 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.sigOffsetXSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val offset = progress - 100
+                val offset = progress - 250
                 binding.sigOffsetXLabel.text = "Horizontal Shift: ${offset}pt"
                 sharedPrefs.edit().putFloat("signature_pdf_offset_x", offset.toFloat()).apply()
                 triggerBoundsAndTransformsUpdate()
@@ -267,14 +267,6 @@ class SettingsActivity : AppCompatActivity() {
                     val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
                     val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
                     
-                    val staffName = sharedPrefs.getString("vr_staff_name", "Amod Kumar") ?: "Amod Kumar"
-                    val designation = sharedPrefs.getString("vr_designation", "Chief Manager") ?: "Chief Manager"
-                    val todayDateStr = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
-                    
-                    binding.sigPreviewStaffName.text = if (staffName.isNotEmpty()) "($staffName)" else ""
-                    binding.sigPreviewDesignation.text = "Designation: $designation"
-                    binding.sigPreviewDate.text = "Date: $todayDateStr"
-                    
                     updateLivePreviewBounds(widthVal, heightVal, offsetXVal, offsetYVal, rotationVal)
                     return
                 }
@@ -310,7 +302,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun triggerBoundsAndTransformsUpdate() {
         val width = maxOf(30, binding.sigWidthSeekBar.progress)
         val height = maxOf(10, binding.sigHeightSeekBar.progress)
-        val offsetX = binding.sigOffsetXSeekBar.progress - 100
+        val offsetX = binding.sigOffsetXSeekBar.progress - 250
         val offsetY = binding.sigOffsetYSeekBar.progress - 60
         val angle = binding.sigRotationSeekBar.progress - 45
         
