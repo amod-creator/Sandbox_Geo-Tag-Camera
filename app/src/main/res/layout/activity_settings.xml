@@ -236,6 +236,7 @@
                                 android:gravity="start">
 
                                 <View
+                                    android:id="@+id/sigPreviewLineView"
                                     android:layout_width="160dp"
                                     android:layout_height="1dp"
                                     android:background="#B0BEC5"

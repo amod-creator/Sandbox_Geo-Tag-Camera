@@ -320,7 +320,13 @@ class SettingsActivity : AppCompatActivity() {
         binding.signaturePreviewBorderCard.translationY = offsetY * ptToPx
         binding.signaturePreviewBorderCard.rotation = angle.toFloat()
         
+        // Dynamically scale the signature line View to match 160f PDF points proportion exactly
+        val lineParams = binding.sigPreviewLineView.layoutParams
+        lineParams.width = (160f * ptToPx).toInt()
+        binding.sigPreviewLineView.layoutParams = lineParams
+        
         binding.signaturePreviewBorderCard.requestLayout()
+        binding.sigPreviewLineView.requestLayout()
     }
 
     private fun updateSwitchesVisibility() {
