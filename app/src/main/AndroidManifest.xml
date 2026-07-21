@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
     <!-- Camera feature is optional -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
@@ -44,6 +46,13 @@
             android:name=".StaffInputActivity"
             android:windowSoftInputMode="adjustResize">
             <!-- This ensures the window resizes when keyboard appears -->
+        </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Settings activity -->
         </activity>
 
         <activity

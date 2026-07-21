@@ -1,12 +1,15 @@
 package com.amod.geotagcamera
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
-import java.io.OutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.math.ceil
 
@@ -80,7 +83,7 @@ class AgriPssPdfGenerator(private val context: Context) {
         isAntiAlias = true
     }
 
-    fun generate(input: Input, out: OutputStream) {
+    fun generate(input: Input, outputFile: File) {
         val pdf = PdfDocument()
         var pageNum = 1
         var page = pdf.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, pageNum).create())
@@ -226,7 +229,42 @@ o Any discrepancies or inconsistencies identified during the verification proces
         cursorY += 14f + paraH + 10f
 
         // Signature block as plain lines (no table)
+        val signatureFile = File(context.filesDir, "signature.png")
+        var sigBitmap: Bitmap? = null
+        var drawW = 0f
+        var drawH = 0f
+        if (signatureFile.exists()) {
+            try {
+                val tempBitmap = BitmapFactory.decodeFile(signatureFile.absolutePath)
+                if (tempBitmap != null) {
+                    sigBitmap = tempBitmap
+                    val maxWidth = 120f
+                    val maxHeight = 40f
+                    val scale = minOf(maxWidth / tempBitmap.width.toFloat(), maxHeight / tempBitmap.height.toFloat())
+                    drawW = tempBitmap.width * scale
+                    drawH = tempBitmap.height * scale
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         val lineGap = textPaint.textSize + 8f
+        val sigNeededSpace = 5 * lineGap + 8f + (if (sigBitmap != null) drawH + 5f else 0f)
+
+        if (cursorY + sigNeededSpace > bottomLimit) {
+            val pair = newPage()
+            canvas = pair.first
+            cursorY = pair.second
+        }
+
+        // Draw signature above "Signature of Inspecting Official" if uploaded
+        if (sigBitmap != null) {
+            val sigLeft = col1X
+            val sigTop = cursorY + lineGap - drawH - 2f
+            canvas.drawBitmap(sigBitmap, null, RectF(sigLeft, sigTop, sigLeft + drawW, sigTop + drawH), null)
+        }
+
         canvas.drawText("Signature of Inspecting Official", col1X, cursorY + lineGap, textPaint)
         canvas.drawText("Name of Official: ${input.officialName}", col1X, cursorY + 2 * lineGap, textPaint)
         canvas.drawText("Designation: ${input.designation}", col1X, cursorY + 3 * lineGap, textPaint)
@@ -238,7 +276,7 @@ o Any discrepancies or inconsistencies identified during the verification proces
         pdf.finishPage(page)
 
         try {
-            pdf.writeTo(out)
+            FileOutputStream(outputFile).use { out -> pdf.writeTo(out) }
         } catch (e: IOException) {
             e.printStackTrace()
         } finally {

@@ -21,4 +21,13 @@
     <string name="not_applicable">Not applicable</string>
     <string name="move_overlay">Move overlay</string>
     <string name="drag_move_hint">Long-press the overlay, then drag it anywhere. Release to save the position.</string>
+    
+    <!-- Settings Screen -->
+    <string name="visit_mode_description">Enable to preview captured images and fill out visit report details after shooting.</string>
+    <string name="signature_section_title">Signature for PDF Reports</string>
+    <string name="signature_description">Upload a signature image to be automatically placed on generated PDF reports.</string>
+    <string name="upload_signature">Upload Signature</string>
+    <string name="clear_signature">Clear Signature</string>
+    <string name="no_signature_hint">No signature uploaded yet. The PDF reports will leave the signature field blank.</string>
+    <string name="signature_preview">Signature Preview</string>
 </resources>

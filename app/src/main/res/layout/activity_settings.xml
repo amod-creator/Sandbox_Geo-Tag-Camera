@@ -1,42 +1,202 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#F8F9FA">
 
-    <!-- Instruction label -->
-    <TextView
-        android:id="@+id/visitModeLabel"
-        android:layout_width="0dp"
+    <!-- Top AppBar and Toolbar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/visit_mode"
-        android:textSize="18sp"
-        android:layout_marginTop="32dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar">
 
-    <!-- Visit Mode Switch -->
-    <Switch
-        android:id="@+id/visitModeSwitch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/visit_mode_toggle"
-        android:checked="false"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/visitModeLabel"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/settingsToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#1F3A60"
+            app:title="@string/settings"
+            app:titleTextColor="@color/white"
+            app:navigationIcon="@drawable/ic_back_white" />
 
-    <!-- Save Settings Button -->
-    <Button
-        android:id="@+id/saveSettingsButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/save"
-        android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/visitModeSwitch"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+    </com.google.android.material.appbar.AppBarLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Scrollable content area -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Card 1: Visit Mode Settings -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="#E0E0E0"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/visit_mode"
+                        android:textColor="#1F3A60"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/visit_mode_description"
+                        android:textColor="#666666"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="16dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#EEEEEE"
+                        android:layout_marginBottom="16dp" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/visitModeSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enable Visit Mode"
+                        android:textColor="#222222"
+                        android:textSize="16sp"
+                        app:thumbTint="@color/teal_700"
+                        app:trackTint="@color/teal_200" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card 2: Signature Settings -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white"
+                app:strokeColor="#E0E0E0"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/signature_section_title"
+                        android:textColor="#1F3A60"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/signature_description"
+                        android:textColor="#666666"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="16dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#EEEEEE"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Preview Frame -->
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="120dp"
+                        android:background="#F5F6F7"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:id="@+id/signaturePreviewImage"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:padding="8dp"
+                            android:scaleType="fitCenter"
+                            android:visibility="gone"
+                            tools:visibility="visible"
+                            tools:src="@android:drawable/ic_menu_signature" />
+
+                        <TextView
+                            android:id="@+id/noSignatureText"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:padding="16dp"
+                            android:text="@string/no_signature_hint"
+                            android:textColor="#888888"
+                            android:textSize="13sp" />
+
+                    </FrameLayout>
+
+                    <!-- Buttons Layout -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUploadSignature"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/upload_signature"
+                            android:backgroundTint="#1F3A60"
+                            android:textColor="@color/white" />
+
+                        <Space
+                            android:layout_width="8dp"
+                            android:layout_height="wrap_content" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnClearSignature"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/clear_signature"
+                            android:textColor="#D32F2F"
+                            app:strokeColor="#D32F2F"
+                            android:visibility="gone"
+                            tools:visibility="visible" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
