@@ -389,28 +389,45 @@ class StaffInputActivity : AppCompatActivity() {
      * Converts JPEG files back to Bitmaps for use in the form
      */
     private fun loadPhotosFromPaths() {
-        // Get photo paths from Intent
-        val paths = intent.getStringArrayListExtra("PHOTO_PATHS") ?: emptyList()
-        val gpsList = intent.getStringArrayListExtra("PHOTO_GPS") ?: emptyList()
-
         photoPaths.clear()
         loadedPhotos.clear()
         photoGpsList.clear()
 
-        paths.forEachIndexed { index, path ->
+        val collagePath = intent.getStringExtra("COLLAGE_IMAGE_PATH")
+        if (!collagePath.isNullOrBlank()) {
+            // Load only the collage image for the report
             try {
-                // Load bitmap from file
-                val bitmap = BitmapFactory.decodeFile(path)
+                val bitmap = BitmapFactory.decodeFile(collagePath)
                 if (bitmap != null) {
                     loadedPhotos.add(bitmap)
-                    photoPaths.add(path)
-                    photoGpsList.add(gpsList.getOrNull(index) ?: "")
-                    Log.d("StaffInputActivity", "Loaded photo from: $path with GPS: ${photoGpsList.last()}")
+                    photoPaths.add(collagePath)
+                    photoGpsList.add("") // Collage has no individual GPS tag
+                    Log.d("StaffInputActivity", "Loaded collage image from: $collagePath")
                 } else {
-                    Log.w("StaffInputActivity", "Failed to decode bitmap from: $path")
+                    Log.w("StaffInputActivity", "Failed to decode collage image from: $collagePath")
                 }
             } catch (e: Exception) {
-                Log.e("StaffInputActivity", "Error loading photo from $path: ${e.message}")
+                Log.e("StaffInputActivity", "Error loading collage image from $collagePath: ${e.message}")
+            }
+        } else {
+            // Otherwise load all individual photos
+            val paths = intent.getStringArrayListExtra("PHOTO_PATHS") ?: emptyList()
+            val gpsList = intent.getStringArrayListExtra("PHOTO_GPS") ?: emptyList()
+
+            paths.forEachIndexed { index, path ->
+                try {
+                    val bitmap = BitmapFactory.decodeFile(path)
+                    if (bitmap != null) {
+                        loadedPhotos.add(bitmap)
+                        photoPaths.add(path)
+                        photoGpsList.add(gpsList.getOrNull(index) ?: "")
+                        Log.d("StaffInputActivity", "Loaded photo from: $path with GPS: ${photoGpsList.last()}")
+                    } else {
+                        Log.w("StaffInputActivity", "Failed to decode bitmap from: $path")
+                    }
+                } catch (e: Exception) {
+                    Log.e("StaffInputActivity", "Error loading photo from $path: ${e.message}")
+                }
             }
         }
 
