@@ -77,7 +77,13 @@
                 android:text="Rotate"
                 app:icon="@drawable/ic_camera_switch"
                 app:iconTint="#1F3A60"
-                android:textColor="#1F3A60"/>
+                android:textColor="#1F3A60"
+                android:textSize="11sp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                app:iconPadding="4dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAutoCrop"
@@ -87,7 +93,13 @@
                 android:text="Auto Crop"
                 app:icon="@drawable/ic_border_medium"
                 app:iconTint="#1F3A60"
-                android:textColor="#1F3A60"/>
+                android:textColor="#1F3A60"
+                android:textSize="11sp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                app:iconPadding="4dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnManualCrop"
@@ -97,7 +109,13 @@
                 android:text="Crop"
                 app:icon="@android:drawable/ic_menu_crop"
                 app:iconTint="#1F3A60"
-                android:textColor="#1F3A60"/>
+                android:textColor="#1F3A60"
+                android:textSize="11sp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                app:iconPadding="4dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnReset"
@@ -107,7 +125,13 @@
                 android:text="Reset"
                 app:icon="@android:drawable/ic_menu_revert"
                 app:iconTint="#1F3A60"
-                android:textColor="#1F3A60"/>
+                android:textColor="#1F3A60"
+                android:textSize="11sp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                app:iconPadding="4dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"/>
 
         </LinearLayout>
 
@@ -194,7 +218,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Original"
-                android:layout_marginEnd="16dp"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:layout_marginEnd="8dp"
                 android:checked="true"/>
 
             <RadioButton
@@ -202,13 +228,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Transparent"
-                android:layout_marginEnd="16dp"/>
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:layout_marginEnd="8dp"/>
 
             <RadioButton
                 android:id="@+id/radioFilterClean"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Clean Paper"/>
+                android:text="Clean Paper"
+                android:textSize="12sp"
+                android:singleLine="true"/>
 
         </RadioGroup>
 
