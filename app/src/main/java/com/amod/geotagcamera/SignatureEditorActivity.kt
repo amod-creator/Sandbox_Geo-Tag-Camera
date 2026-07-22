@@ -107,7 +107,6 @@ class SignatureEditorActivity : AppCompatActivity() {
 
         // Manual Crop Mode activation
         binding.btnManualCrop.setOnClickListener {
-            binding.cropControlsContainer.visibility = View.VISIBLE
             // Disable other buttons during crop mode
             binding.btnRotateClockwise.isEnabled = false
             binding.btnAutoCrop.isEnabled = false
@@ -115,82 +114,79 @@ class SignatureEditorActivity : AppCompatActivity() {
             binding.btnManualCrop.isEnabled = false
             binding.filterRadioGroup.isEnabled = false
             binding.sensitivitySeekBar.isEnabled = false
-            updateCropPreview()
-        }
 
-        // Manual Crop SeekBars
-        binding.cropLeftSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.cropLeftLabel.text = "Crop Left: $progress%"
-                updateCropPreview()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        binding.cropRightSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.cropRightLabel.text = "Crop Right: $progress%"
-                updateCropPreview()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        binding.cropTopSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.cropTopLabel.text = "Crop Top: $progress%"
-                updateCropPreview()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        binding.cropBottomSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.cropBottomLabel.text = "Crop Bottom: $progress%"
-                updateCropPreview()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+            // Calculate actual image rect inside ImageView
+            val imgRect = getImageRect(binding.sigPreviewImageView)
+
+            // Initialize CropOverlayView
+            binding.cropOverlayView.initCropBounds(imgRect)
+            binding.cropOverlayView.visibility = View.VISIBLE
+            binding.cropControlsContainer.visibility = View.VISIBLE
+        }
 
         // Confirm manual crop
         binding.btnConfirmManualCrop.setOnClickListener {
             val width = currentBitmap.width
             val height = currentBitmap.height
-            
-            val leftClip = (width * (binding.cropLeftSeekBar.progress / 100f)).toInt()
-            val rightClip = (width * (binding.cropRightSeekBar.progress / 100f)).toInt()
-            val topClip = (height * (binding.cropTopSeekBar.progress / 100f)).toInt()
-            val bottomClip = (height * (binding.cropBottomSeekBar.progress / 100f)).toInt()
-            
-            val newWidth = width - leftClip - rightClip
-            val newHeight = height - topClip - bottomClip
-            
-            if (newWidth > 5 && newHeight > 5) {
-                val cropped = Bitmap.createBitmap(currentBitmap, leftClip, topClip, newWidth, newHeight)
-                currentBitmap.recycle()
-                currentBitmap = cropped
-                
-                // Hide crop controls and restore state
-                binding.cropControlsContainer.visibility = View.GONE
-                binding.btnRotateClockwise.isEnabled = true
-                binding.btnAutoCrop.isEnabled = true
-                binding.btnReset.isEnabled = true
-                binding.btnManualCrop.isEnabled = true
-                binding.filterRadioGroup.isEnabled = true
-                binding.sensitivitySeekBar.isEnabled = true
-                
-                binding.cropLeftSeekBar.progress = 0
-                binding.cropRightSeekBar.progress = 0
-                binding.cropTopSeekBar.progress = 0
-                binding.cropBottomSeekBar.progress = 0
-                
-                updatePreview()
-                Toast.makeText(this, "Signature cropped successfully", Toast.LENGTH_SHORT).show()
+
+            val imgRect = getImageRect(binding.sigPreviewImageView)
+            val overlay = binding.cropOverlayView
+
+            val w = overlay.width.toFloat()
+            val h = overlay.height.toFloat()
+
+            // Calculate crop bounds relative to the scaled image bounds
+            val leftViewX = overlay.cropLeft * w
+            val topViewY = overlay.cropTop * h
+            val rightViewX = overlay.cropRight * w
+            val bottomViewY = overlay.cropBottom * h
+
+            // Map these view coordinates relative to imgRect back to bitmap coordinates
+            val imgWidth = imgRect.width()
+            val imgHeight = imgRect.height()
+
+            if (imgWidth > 0 && imgHeight > 0) {
+                val leftBmpPct = ((leftViewX - imgRect.left) / imgWidth).coerceIn(0f, 1f)
+                val topBmpPct = ((topViewY - imgRect.top) / imgHeight).coerceIn(0f, 1f)
+                val rightBmpPct = ((rightViewX - imgRect.left) / imgWidth).coerceIn(0f, 1f)
+                val bottomBmpPct = ((bottomViewY - imgRect.top) / imgHeight).coerceIn(0f, 1f)
+
+                val leftClip = (width * leftBmpPct).toInt()
+                val topClip = (height * topBmpPct).toInt()
+                val rightClip = (width * rightBmpPct).toInt()
+                val bottomClip = (height * bottomBmpPct).toInt()
+
+                val newWidth = rightClip - leftClip
+                val newHeight = bottomClip - topClip
+
+                if (newWidth > 5 && newHeight > 5) {
+                    val cropped = Bitmap.createBitmap(currentBitmap, leftClip, topClip, newWidth, newHeight)
+                    currentBitmap.recycle()
+                    currentBitmap = cropped
+
+                    // Hide crop controls and restore state
+                    binding.cropOverlayView.visibility = View.GONE
+                    binding.cropControlsContainer.visibility = View.GONE
+                    binding.btnRotateClockwise.isEnabled = true
+                    binding.btnAutoCrop.isEnabled = true
+                    binding.btnReset.isEnabled = true
+                    binding.btnManualCrop.isEnabled = true
+                    binding.filterRadioGroup.isEnabled = true
+                    binding.sensitivitySeekBar.isEnabled = true
+
+                    updatePreview()
+                    Toast.makeText(this, "Signature cropped successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Crop area too small", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Failed to calculate image crop bounds", Toast.LENGTH_SHORT).show()
             }
         }
 
         // Cancel manual crop
         binding.btnCancelManualCrop.setOnClickListener {
+            binding.cropOverlayView.visibility = View.GONE
             binding.cropControlsContainer.visibility = View.GONE
             binding.btnRotateClockwise.isEnabled = true
             binding.btnAutoCrop.isEnabled = true
@@ -198,12 +194,6 @@ class SignatureEditorActivity : AppCompatActivity() {
             binding.btnManualCrop.isEnabled = true
             binding.filterRadioGroup.isEnabled = true
             binding.sensitivitySeekBar.isEnabled = true
-            
-            binding.cropLeftSeekBar.progress = 0
-            binding.cropRightSeekBar.progress = 0
-            binding.cropTopSeekBar.progress = 0
-            binding.cropBottomSeekBar.progress = 0
-            
             updatePreview()
         }
 
@@ -254,44 +244,26 @@ class SignatureEditorActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateCropPreview() {
-        val width = currentBitmap.width
-        val height = currentBitmap.height
-        
-        val leftClip = (width * (binding.cropLeftSeekBar.progress / 100f)).toInt()
-        val rightClip = (width * (binding.cropRightSeekBar.progress / 100f)).toInt()
-        val topClip = (height * (binding.cropTopSeekBar.progress / 100f)).toInt()
-        val bottomClip = (height * (binding.cropBottomSeekBar.progress / 100f)).toInt()
+    private fun getImageRect(imageView: android.widget.ImageView): android.graphics.RectF {
+        val drawable = imageView.drawable ?: return android.graphics.RectF(0f, 0f, imageView.width.toFloat(), imageView.height.toFloat())
+        val imageWidth = drawable.intrinsicWidth
+        val imageHeight = drawable.intrinsicHeight
 
-        // Create display bitmap copy using current filter settings
-        val displayBmp = applySigFilter(currentBitmap, getActiveFilter(), binding.sensitivitySeekBar.progress)
-        val canvas = android.graphics.Canvas(displayBmp)
-        
-        val maskPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.argb(120, 255, 0, 0) // semi-transparent red mask
-            style = android.graphics.Paint.Style.FILL
-        }
-        val borderPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.BLUE
-            strokeWidth = 3f * resources.displayMetrics.density
-            style = android.graphics.Paint.Style.STROKE
-        }
-        
-        if (leftClip > 0) canvas.drawRect(0f, 0f, leftClip.toFloat(), height.toFloat(), maskPaint)
-        if (rightClip > 0) canvas.drawRect((width - rightClip).toFloat(), 0f, width.toFloat(), height.toFloat(), maskPaint)
-        if (topClip > 0) canvas.drawRect(0f, 0f, width.toFloat(), topClip.toFloat(), maskPaint)
-        if (bottomClip > 0) canvas.drawRect(0f, (height - bottomClip).toFloat(), width.toFloat(), height.toFloat(), maskPaint)
-        
-        // Draw crop area border frame
-        canvas.drawRect(
-            leftClip.toFloat(),
-            topClip.toFloat(),
-            (width - rightClip).toFloat(),
-            (height - bottomClip).toFloat(),
-            borderPaint
+        val viewWidth = imageView.width - imageView.paddingLeft - imageView.paddingRight
+        val viewHeight = imageView.height - imageView.paddingTop - imageView.paddingBottom
+
+        val scale = Math.min(
+            viewWidth.toFloat() / imageWidth,
+            viewHeight.toFloat() / imageHeight
         )
-        
-        binding.sigPreviewImageView.setImageBitmap(displayBmp)
+
+        val scaledWidth = imageWidth * scale
+        val scaledHeight = imageHeight * scale
+
+        val left = imageView.paddingLeft + (viewWidth - scaledWidth) / 2f
+        val top = imageView.paddingTop + (viewHeight - scaledHeight) / 2f
+
+        return android.graphics.RectF(left, top, left + scaledWidth, top + scaledHeight)
     }
 
     private fun updatePreview() {
@@ -406,43 +378,67 @@ class SignatureEditorActivity : AppCompatActivity() {
 
         val width = source.width
         val height = source.height
-        val pixels = IntArray(width * height)
-        source.getPixels(pixels, 0, width, 0, 0, width, height)
 
-        for (i in pixels.indices) {
-            val p = pixels[i]
-            val r = Color.red(p)
-            val g = Color.green(p)
-            val b = Color.blue(p)
-            val a = Color.alpha(p)
+        // Advanced local illumination background estimation using fast native bilinear down/up scaling
+        val scaleFactor = 16
+        val dsWidth = (width / scaleFactor).coerceAtLeast(8)
+        val dsHeight = (height / scaleFactor).coerceAtLeast(8)
+        
+        val downscaled = Bitmap.createScaledBitmap(source, dsWidth, dsHeight, true)
+        val bgBmpScaled = Bitmap.createScaledBitmap(downscaled, width, height, true)
+        downscaled.recycle()
 
-            val luminance = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
+        val originalPixels = IntArray(width * height)
+        val bgPixels = IntArray(width * height)
+        source.getPixels(originalPixels, 0, width, 0, 0, width, height)
+        bgBmpScaled.getPixels(bgPixels, 0, width, 0, 0, width, height)
+        bgBmpScaled.recycle()
+
+        val factor = threshold / 255f
+        for (i in originalPixels.indices) {
+            val p = originalPixels[i]
+            val bgP = bgPixels[i]
+
+            val r = (p shr 16) and 0xFF
+            val g = (p shr 8) and 0xFF
+            val b = p and 0xFF
+            val a = (p shr 24) and 0xFF
+
+            val bgR = (bgP shr 16) and 0xFF
+            val bgG = (bgP shr 8) and 0xFF
+            val bgB = bgP and 0xFF
+
+            // Compute luminance
+            val y = 0.299f * r + 0.587f * g + 0.114f * b
+            val bgY = 0.299f * bgR + 0.587f * bgG + 0.114f * bgB
+
+            val diff = bgY - y
+            val maxDiff = bgY * (1f - factor)
 
             if (filterMode == FilterMode.TRANSPARENT_INK) {
-                // If luminance is above threshold, make it transparent
-                if (luminance > threshold) {
-                    pixels[i] = Color.TRANSPARENT
+                // If pixel is darker than the local background estimate, it is ink
+                if (diff > 2f) {
+                    val inkAlpha = if (maxDiff <= 0) 255 else ((diff / maxDiff) * 255).toInt().coerceIn(0, 255)
+                    val finalAlpha = (inkAlpha * a / 255).coerceIn(0, 255)
+                    originalPixels[i] = (finalAlpha shl 24) or 0x000000 // smooth black ink
                 } else {
-                    // Turn everything else into clean solid black ink (absorbing borders)
-                    pixels[i] = Color.argb(a, 0, 0, 0)
+                    originalPixels[i] = Color.TRANSPARENT
                 }
             } else if (filterMode == FilterMode.CLEAN_PAPER) {
-                // Clean Paper: remove white background, make ink darker
-                if (luminance > threshold) {
-                    pixels[i] = Color.TRANSPARENT
+                if (diff > 2f) {
+                    val inkAlpha = if (maxDiff <= 0) 255 else ((diff / maxDiff) * 255).toInt().coerceIn(0, 255)
+                    val rOut = ((r * (255 - inkAlpha) + 0 * inkAlpha) / 255).coerceIn(0, 255)
+                    val gOut = ((g * (255 - inkAlpha) + 0 * inkAlpha) / 255).coerceIn(0, 255)
+                    val bOut = ((b * (255 - inkAlpha) + 0 * inkAlpha) / 255).coerceIn(0, 255)
+                    originalPixels[i] = (0xFF shl 24) or (rOut shl 16) or (gOut shl 8) or bOut
                 } else {
-                    // Make the original ink darker/higher contrast
-                    val factor = 0.5f
-                    val nr = (r * factor).toInt().coerceIn(0, 255)
-                    val ng = (g * factor).toInt().coerceIn(0, 255)
-                    val nb = (b * factor).toInt().coerceIn(0, 255)
-                    pixels[i] = Color.argb(a, nr, ng, nb)
+                    originalPixels[i] = -0x1 // Solid white paper background
                 }
             }
         }
 
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        result.setPixels(pixels, 0, width, 0, 0, width, height)
+        result.setPixels(originalPixels, 0, width, 0, 0, width, height)
         return result
     }
 

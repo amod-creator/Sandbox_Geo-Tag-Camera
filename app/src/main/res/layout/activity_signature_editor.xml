@@ -50,6 +50,12 @@
                     android:padding="12dp"
                     android:scaleType="fitCenter"
                     android:contentDescription="Signature Preview"/>
+
+                <com.amod.geotagcamera.utils.CropOverlayView
+                    android:id="@+id/cropOverlayView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone"/>
             </FrameLayout>
 
         </com.google.android.material.card.MaterialCardView>
@@ -120,74 +126,18 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Manual Crop Borders"
+                android:text="Crop Signature"
                 android:textStyle="bold"
                 android:textColor="#1F3A60"
                 android:textSize="13sp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="4dp"/>
 
-            <!-- Crop Left -->
             <TextView
-                android:id="@+id/cropLeftLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Crop Left: 0%"
-                android:textSize="11sp"
-                android:textColor="#555555"/>
-            <SeekBar
-                android:id="@+id/cropLeftSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="45"
-                android:progress="0"
-                android:layout_marginBottom="6dp"/>
-
-            <!-- Crop Right -->
-            <TextView
-                android:id="@+id/cropRightLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Crop Right: 0%"
-                android:textSize="11sp"
-                android:textColor="#555555"/>
-            <SeekBar
-                android:id="@+id/cropRightSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="45"
-                android:progress="0"
-                android:layout_marginBottom="6dp"/>
-
-            <!-- Crop Top -->
-            <TextView
-                android:id="@+id/cropTopLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Crop Top: 0%"
-                android:textSize="11sp"
-                android:textColor="#555555"/>
-            <SeekBar
-                android:id="@+id/cropTopSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="45"
-                android:progress="0"
-                android:layout_marginBottom="6dp"/>
-
-            <!-- Crop Bottom -->
-            <TextView
-                android:id="@+id/cropBottomLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Crop Bottom: 0%"
-                android:textSize="11sp"
-                android:textColor="#555555"/>
-            <SeekBar
-                android:id="@+id/cropBottomSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="45"
-                android:progress="0"
+                android:text="Drag the borders or corners with your fingers to select the signature area."
+                android:textSize="12sp"
+                android:textColor="#555555"
                 android:layout_marginBottom="12dp"/>
 
             <LinearLayout

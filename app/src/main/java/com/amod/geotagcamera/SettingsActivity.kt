@@ -380,17 +380,12 @@ class SettingsActivity : AppCompatActivity() {
         val visitModeEnabled = binding.visitModeSwitch.isChecked
         val signatureRequiredEnabled = binding.signatureRequiredSwitch.isChecked
         
-        // "Signature Required" divider and switch are only shown when Visit Mode is enabled
-        if (visitModeEnabled) {
-            binding.visitModeDivider.visibility = View.VISIBLE
-            binding.signatureRequiredSwitch.visibility = View.VISIBLE
-        } else {
-            binding.visitModeDivider.visibility = View.GONE
-            binding.signatureRequiredSwitch.visibility = View.GONE
-        }
+        // "Signature Required" divider and switch are always shown (independent)
+        binding.visitModeDivider.visibility = View.VISIBLE
+        binding.signatureRequiredSwitch.visibility = View.VISIBLE
         
-        // Card 2: Signature Settings is only shown when Visit Mode is enabled AND Signature Required is enabled
-        if (visitModeEnabled && signatureRequiredEnabled) {
+        // Card 2: Signature Settings is shown when Signature Required is enabled
+        if (signatureRequiredEnabled) {
             binding.signatureSettingsCard.visibility = View.VISIBLE
         } else {
             binding.signatureSettingsCard.visibility = View.GONE
