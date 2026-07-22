@@ -221,8 +221,8 @@ class StaffInputActivity : AppCompatActivity() {
                     officialName = binding.nameInput.text.toString()
                 )
 
-                // Save to Documents/GPS Cam Visit Pro folder - matching MainActivity configuration
-                val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                // Save to Documents/GPS Cam Visit Pro folder inside the app's external storage folder
+                val docsDir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS) ?: filesDir
                 val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
                 if (!pdfDir.exists()) {
                     pdfDir.mkdirs()
@@ -278,13 +278,13 @@ class StaffInputActivity : AppCompatActivity() {
                 )
 
 
-                // Save to Documents/GPS Cam Visit Pro folder - matching MainActivity configuration
-                val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                // Save to Documents/GPS Cam Visit Pro folder inside the app's external storage folder
+                val docsDir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS) ?: filesDir
                 val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
                 if (!pdfDir.exists()) {
                     pdfDir.mkdirs()
                 }
-
+                
                 // Create filename: Name of Borrower_Account Number_Visit Report_ Date & Time.pdf
                 val borrower = if (borrowerName.isBlank()) "Unknown" else borrowerName.replace(Regex("[^a-zA-Z0-9 ]"), "").trim().replace(" ", "_")
                 val account = if (loanAccountNumber.isBlank()) "NoAccount" else loanAccountNumber.replace(Regex("[^a-zA-Z0-9]"), "")
@@ -433,10 +433,9 @@ class StaffInputActivity : AppCompatActivity() {
                 flags = Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
 
-            // Check if there's an app that can handle PDF files
-            if (intent.resolveActivity(packageManager) != null) {
+            try {
                 startActivity(intent)
-            } else {
+            } catch (e: android.content.ActivityNotFoundException) {
                 Toast.makeText(this, "No PDF viewer app found. Please install one.", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
