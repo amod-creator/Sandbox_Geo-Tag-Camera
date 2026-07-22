@@ -272,7 +272,7 @@ o Any discrepancies or inconsistencies identified during the verification proces
             val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
             val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
-            val sigLeft = col1X + signatureOffsetX
+            val sigLeft = col1X + signatureOffsetX - 15f
             val sigTop = cursorY + lineGap - drawH - 2f + signatureOffsetY
 
             canvas.save()
