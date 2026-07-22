@@ -271,6 +271,9 @@ class MainActivity : AppCompatActivity() {
         // Immediate UI refresh using cached address and location
         updateLiveOverlay()
         
+        // Fetch location instantly on resume/return
+        getLocation()
+        
         // Adjust overlay with current rotation if views are ready
         try {
             if (::previewView.isInitialized && previewView.parent != null) {
