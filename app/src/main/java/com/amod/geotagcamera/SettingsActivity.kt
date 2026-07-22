@@ -109,81 +109,96 @@ class SettingsActivity : AppCompatActivity() {
             updateSwitchesVisibility()
         }
 
-        // Initialize dynamic signature sizing, offsets, and rotation seekbars
-        val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
-        val heightVal = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
-        val offsetXVal = sharedPrefs.getFloat("signature_pdf_offset_x", -40f).toInt()
-        val offsetYVal = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
-        val rotationVal = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
+        // Setup dynamic finger touch listener for dragging, pinch-zooming width/height, and rotating
+        binding.signaturePreviewBorderCard.setOnTouchListener(object : android.view.View.OnTouchListener {
+            private var mode = 0 // 0: NONE, 1: DRAG, 2: ZOOM
+            private var startX = 0f
+            private var startY = 0f
+            private var startOffsetX = 0f
+            private var startOffsetY = 0f
 
-        binding.sigWidthSeekBar.progress = widthVal
-        binding.sigWidthLabel.text = "Display Width: ${widthVal}pt"
+            private var startSpanX = 0f
+            private var startSpanY = 0f
+            private var startWidth = 120f
+            private var startHeight = 40f
+            private var startAngle = 0f
+            private var startRotation = 0f
 
-        binding.sigHeightSeekBar.progress = heightVal
-        binding.sigHeightLabel.text = "Display Height: ${heightVal}pt"
+            override fun onTouch(v: android.view.View, event: android.view.MotionEvent): Boolean {
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        mode = 1 // DRAG
+                        startX = event.rawX
+                        startY = event.rawY
+                        startOffsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f)
+                        startOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
+                    }
+                    android.view.MotionEvent.ACTION_POINTER_DOWN -> {
+                        if (event.pointerCount == 2) {
+                            mode = 2 // ZOOM / ROTATE
+                            val p0x = event.getX(0)
+                            val p0y = event.getY(0)
+                            val p1x = event.getX(1)
+                            val p1y = event.getY(1)
 
-        binding.sigOffsetXSeekBar.progress = offsetXVal + 250
-        binding.sigOffsetXLabel.text = "Horizontal Shift: ${offsetXVal}pt"
+                            startSpanX = Math.abs(p0x - p1x).coerceAtLeast(10f)
+                            startSpanY = Math.abs(p0y - p1y).coerceAtLeast(10f)
 
-        binding.sigOffsetYSeekBar.progress = offsetYVal + 60
-        binding.sigOffsetYLabel.text = "Vertical Shift: ${offsetYVal}pt"
+                            startWidth = sharedPrefs.getFloat("signature_pdf_width", 120f)
+                            startHeight = sharedPrefs.getFloat("signature_pdf_height", 40f)
 
-        binding.sigRotationSeekBar.progress = rotationVal + 45
-        binding.sigRotationLabel.text = "Curve/Slant Rotation: ${rotationVal}°"
+                            startAngle = Math.atan2((p0y - p1y).toDouble(), (p0x - p1x).toDouble()).toFloat()
+                            startRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        if (mode == 1) {
+                            val dx = event.rawX - startX
+                            val dy = event.rawY - startY
 
-        binding.sigWidthSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val progressVal = maxOf(30, progress) // minimum width 30pt
-                binding.sigWidthLabel.text = "Display Width: ${progressVal}pt"
-                sharedPrefs.edit().putFloat("signature_pdf_width", progressVal.toFloat()).apply()
-                triggerBoundsAndTransformsUpdate()
+                            val newOffsetX = (startOffsetX + dx / ptToPx).coerceIn(-250f, 250f)
+                            val newOffsetY = (startOffsetY + dy / ptToPx).coerceIn(-60f, 60f)
+
+                            sharedPrefs.edit()
+                                .putFloat("signature_pdf_offset_x", newOffsetX)
+                                .putFloat("signature_pdf_offset_y", newOffsetY)
+                                .apply()
+
+                            triggerBoundsAndTransformsUpdate()
+                        } else if (mode == 2 && event.pointerCount == 2) {
+                            val p0x = event.getX(0)
+                            val p0y = event.getY(0)
+                            val p1x = event.getX(1)
+                            val p1y = event.getY(1)
+
+                            val currentSpanX = Math.abs(p0x - p1x)
+                            val currentSpanY = Math.abs(p0y - p1y)
+
+                            val newWidth = (startWidth * (currentSpanX / startSpanX)).coerceIn(30f, 300f)
+                            val newHeight = (startHeight * (currentSpanY / startSpanY)).coerceIn(10f, 150f)
+
+                            val currentAngle = Math.atan2((p0y - p1y).toDouble(), (p0x - p1x).toDouble()).toFloat()
+                            val dAngleRad = currentAngle - startAngle
+                            val dAngleDeg = Math.toDegrees(dAngleRad.toDouble()).toFloat()
+                            val newRotation = (startRotation + dAngleDeg).coerceIn(-45f, 45f)
+
+                            sharedPrefs.edit()
+                                .putFloat("signature_pdf_width", newWidth)
+                                .putFloat("signature_pdf_height", newHeight)
+                                .putFloat("signature_pdf_rotation", newRotation)
+                                .apply()
+
+                            triggerBoundsAndTransformsUpdate()
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL,
+                    android.view.MotionEvent.ACTION_POINTER_UP -> {
+                        mode = 0
+                    }
+                }
+                return true
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        binding.sigHeightSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val progressVal = maxOf(10, progress) // minimum height 10pt
-                binding.sigHeightLabel.text = "Display Height: ${progressVal}pt"
-                sharedPrefs.edit().putFloat("signature_pdf_height", progressVal.toFloat()).apply()
-                triggerBoundsAndTransformsUpdate()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        binding.sigOffsetXSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val offset = progress - 250
-                binding.sigOffsetXLabel.text = "Horizontal Shift: ${offset}pt"
-                sharedPrefs.edit().putFloat("signature_pdf_offset_x", offset.toFloat()).apply()
-                triggerBoundsAndTransformsUpdate()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        binding.sigOffsetYSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val offset = progress - 60
-                binding.sigOffsetYLabel.text = "Vertical Shift: ${offset}pt"
-                sharedPrefs.edit().putFloat("signature_pdf_offset_y", offset.toFloat()).apply()
-                triggerBoundsAndTransformsUpdate()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        binding.sigRotationSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val angle = progress - 45
-                binding.sigRotationLabel.text = "Curve/Slant Rotation: ${angle}°"
-                sharedPrefs.edit().putFloat("signature_pdf_rotation", angle.toFloat()).apply()
-                triggerBoundsAndTransformsUpdate()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
         // Setup upload, edit, and clear buttons
@@ -304,7 +319,7 @@ class SettingsActivity : AppCompatActivity() {
                     binding.btnEditSpace.visibility = View.VISIBLE
                     binding.btnClearSpace.visibility = View.VISIBLE
                     binding.btnUploadSignature.text = "Replace"
-                    binding.signatureSizeContainer.visibility = View.VISIBLE
+                    binding.signatureSizeContainer.visibility = View.GONE
                     
                     val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
                     val widthVal = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
@@ -346,11 +361,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun triggerBoundsAndTransformsUpdate() {
-        val width = maxOf(30, binding.sigWidthSeekBar.progress)
-        val height = maxOf(10, binding.sigHeightSeekBar.progress)
-        val offsetX = binding.sigOffsetXSeekBar.progress - 250
-        val offsetY = binding.sigOffsetYSeekBar.progress - 60
-        val angle = binding.sigRotationSeekBar.progress - 45
+        val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
+        val width = sharedPrefs.getFloat("signature_pdf_width", 120f).toInt()
+        val height = sharedPrefs.getFloat("signature_pdf_height", 40f).toInt()
+        val offsetX = sharedPrefs.getFloat("signature_pdf_offset_x", -40f).toInt()
+        val offsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f).toInt()
+        val angle = sharedPrefs.getFloat("signature_pdf_rotation", 0f).toInt()
         
         updateLivePreviewBounds(width, height, offsetX, offsetY, angle)
     }

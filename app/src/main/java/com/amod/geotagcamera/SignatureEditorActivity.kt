@@ -395,8 +395,8 @@ class SignatureEditorActivity : AppCompatActivity() {
         bgBmpScaled.recycle()
 
         // Linear mapping from threshold (0..255) to local subtraction constant C
-        val C = (255 - threshold) * 0.15f + 2f
-        val maxDiff = 120f
+        val C = (255 - threshold) * 0.15f + 1.5f
+        val maxDiff = 90f // Sharper transition range to make signature lines darker and bolder
 
         for (i in originalPixels.indices) {
             val p = originalPixels[i]
@@ -421,21 +421,40 @@ class SignatureEditorActivity : AppCompatActivity() {
                 // If pixel is darker than local background minus constant C, it is ink
                 if (diff > C) {
                     val pct = ((diff - C) / maxDiff).coerceIn(0f, 1f)
-                    // Apply power curve contrast boost to keep signature lines solid and bold
-                    val boostedPct = Math.pow(pct.toDouble(), 0.4).toFloat()
-                    val finalAlpha = ((boostedPct * 255) * a / 255).toInt().coerceIn(0, 255)
-                    originalPixels[i] = (finalAlpha shl 24) or 0x000000 // Smooth black ink
+                    // Denoising gate: ignore tiny speckles, focus on real signature lines
+                    val boostedPct = if (pct < 0.03f) {
+                        0f
+                    } else {
+                        val normalized = (pct - 0.03f) / 0.97f
+                        Math.pow(normalized.toDouble(), 0.15).toFloat() // Strong power boost for bold black lines
+                    }
+                    
+                    if (boostedPct > 0f) {
+                        val finalAlpha = ((boostedPct * 255) * a / 255).toInt().coerceIn(0, 255)
+                        originalPixels[i] = (finalAlpha shl 24) or 0x000000 // Smooth black ink
+                    } else {
+                        originalPixels[i] = Color.TRANSPARENT
+                    }
                 } else {
                     originalPixels[i] = Color.TRANSPARENT
                 }
             } else if (filterMode == FilterMode.CLEAN_PAPER) {
                 if (diff > C) {
                     val pct = ((diff - C) / maxDiff).coerceIn(0f, 1f)
-                    val boostedPct = Math.pow(pct.toDouble(), 0.4).toFloat()
-                    val finalAlpha = (boostedPct * 255).toInt().coerceIn(0, 255)
+                    val boostedPct = if (pct < 0.03f) {
+                        0f
+                    } else {
+                        val normalized = (pct - 0.03f) / 0.97f
+                        Math.pow(normalized.toDouble(), 0.15).toFloat()
+                    }
                     
-                    val gray = (255 - finalAlpha).coerceIn(0, 255)
-                    originalPixels[i] = (0xFF shl 24) or (gray shl 16) or (gray shl 8) or gray // Grayscale ink
+                    if (boostedPct > 0f) {
+                        val finalAlpha = (boostedPct * 255).toInt().coerceIn(0, 255)
+                        val gray = (255 - finalAlpha).coerceIn(0, 255)
+                        originalPixels[i] = (0xFF shl 24) or (gray shl 16) or (gray shl 8) or gray // High-contrast smooth black ink
+                    } else {
+                        originalPixels[i] = -0x1
+                    }
                 } else {
                     originalPixels[i] = -0x1 // Pure solid white paper background
                 }
