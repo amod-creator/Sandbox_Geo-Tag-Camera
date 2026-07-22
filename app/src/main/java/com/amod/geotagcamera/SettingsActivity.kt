@@ -27,6 +27,18 @@ class SettingsActivity : AppCompatActivity() {
         uri?.let { handleSelectedSignature(it) }
     }
 
+    private var cameraTempFile: java.io.File? = null
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            cameraTempFile?.let { file ->
+                val intent = Intent(this, SignatureEditorActivity::class.java).apply {
+                    putExtra("TEMP_SIG_PATH", file.absolutePath)
+                }
+                signatureEditorLauncher.launch(intent)
+            }
+        }
+    }
+
     private val signatureEditorLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             updateSignaturePreview()
@@ -170,7 +182,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Setup upload, edit, and clear buttons
         binding.btnUploadSignature.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            showUploadSourceDialog()
         }
 
         binding.btnEditSignature.setOnClickListener {
@@ -241,6 +253,34 @@ class SettingsActivity : AppCompatActivity() {
             Log.e("SettingsActivity", "Error saving signature: ${e.message}", e)
             Toast.makeText(this, "Failed to upload signature", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showUploadSourceDialog() {
+        val options = arrayOf("Choose from Gallery", "Capture from Camera")
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Upload Signature")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> pickImageLauncher.launch("image/*")
+                    1 -> {
+                        try {
+                            val tempFile = File(cacheDir, "temp_sig_input.jpg")
+                            if (tempFile.exists()) tempFile.delete()
+                            cameraTempFile = tempFile
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                this,
+                                "${applicationContext.packageName}.fileprovider",
+                                tempFile
+                            )
+                            takePictureLauncher.launch(uri)
+                        } catch (e: Exception) {
+                            Log.e("SettingsActivity", "Error starting camera: ${e.message}", e)
+                            Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .show()
     }
 
     private fun updateSignaturePreview() {
