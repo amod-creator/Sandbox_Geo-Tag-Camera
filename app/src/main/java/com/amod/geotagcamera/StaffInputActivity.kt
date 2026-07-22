@@ -494,25 +494,58 @@ class StaffInputActivity : AppCompatActivity() {
             val parent = editText.parent as? android.view.ViewGroup
             if (parent is android.widget.LinearLayout) {
                 val index = parent.indexOfChild(editText)
-                val density = resources.displayMetrics.density
-                val marginStart = (4 * density).toInt()
-                val marginTop = (2 * density).toInt()
-                val marginBottom = (8 * density).toInt()
-                
-                label = android.widget.TextView(this).apply {
-                    layoutParams = android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        setMargins(marginStart, marginTop, marginStart, marginBottom)
+                if (index > 0) {
+                    val sibling = parent.getChildAt(index - 1)
+                    val density = resources.displayMetrics.density
+                    
+                    if (sibling is android.widget.LinearLayout && sibling.orientation == android.widget.LinearLayout.HORIZONTAL) {
+                        if (sibling.childCount > 1) {
+                            label = sibling.getChildAt(1) as? android.widget.TextView
+                        }
+                    } else if (sibling is android.widget.TextView) {
+                        // Remove original label TextView and replace it with a horizontal container
+                        parent.removeViewAt(index - 1)
+                        
+                        val container = android.widget.LinearLayout(this).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            gravity = android.view.Gravity.CENTER_VERTICAL
+                            layoutParams = android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                val siblingParams = sibling.layoutParams as? android.widget.LinearLayout.LayoutParams
+                                if (siblingParams != null) {
+                                    setMargins(siblingParams.leftMargin, siblingParams.topMargin, siblingParams.rightMargin, siblingParams.bottomMargin)
+                                }
+                            }
+                        }
+                        
+                        // Clear sibling margins so it fits inside the horizontal layout
+                        sibling.layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        container.addView(sibling)
+                        
+                        // Create the 'Saved Data' label in blue on the right-hand side
+                        label = android.widget.TextView(this).apply {
+                            layoutParams = android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                setMargins((8 * density).toInt(), 0, 0, 0)
+                            }
+                            text = "Saved Data"
+                            setTextColor(android.graphics.Color.parseColor("#1976D2")) // Material Blue
+                            textSize = 10f
+                            setTypeface(null, android.graphics.Typeface.BOLD)
+                        }
+                        container.addView(label)
+                        
+                        parent.addView(container, index - 1)
+                        autoSaveLabels[editText] = label
                     }
-                    text = "Auto Saved Data"
-                    setTextColor(android.graphics.Color.parseColor("#777777"))
-                    textSize = 10f
-                    setTypeface(null, android.graphics.Typeface.ITALIC)
                 }
-                parent.addView(label, index + 1)
-                autoSaveLabels[editText] = label
             }
         }
 
