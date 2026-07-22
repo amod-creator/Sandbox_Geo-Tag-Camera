@@ -221,8 +221,8 @@ class StaffInputActivity : AppCompatActivity() {
                     officialName = binding.nameInput.text.toString()
                 )
 
-                // Save to Documents/GPS Cam Visit Pro folder inside the app's external storage folder
-                val docsDir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS) ?: filesDir
+                // Save to public Documents/GPS Cam Visit Pro folder
+                val docsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
                 val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
                 if (!pdfDir.exists()) {
                     pdfDir.mkdirs()
@@ -234,6 +234,15 @@ class StaffInputActivity : AppCompatActivity() {
                     AgriPssPdfGenerator(this).generate(input, outputFile)
                     Toast.makeText(this, "AGRI PSS Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
                     Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
+
+                    // Scan file with MediaScanner so it appears instantly in File Manager / Recent files
+                    android.media.MediaScannerConnection.scanFile(
+                        this,
+                        arrayOf(outputFile.absolutePath),
+                        arrayOf("application/pdf")
+                    ) { path, uri ->
+                        Log.d("StaffInputActivity", "PDF registered with MediaScanner: $path -> $uri")
+                    }
 
                     // Open the PDF immediately
                     openPdfFile(outputFile)
@@ -278,8 +287,8 @@ class StaffInputActivity : AppCompatActivity() {
                 )
 
 
-                // Save to Documents/GPS Cam Visit Pro folder inside the app's external storage folder
-                val docsDir = getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS) ?: filesDir
+                // Save to public Documents/GPS Cam Visit Pro folder
+                val docsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
                 val pdfDir = java.io.File(docsDir, "GPS Cam Visit Pro")
                 if (!pdfDir.exists()) {
                     pdfDir.mkdirs()
@@ -296,6 +305,15 @@ class StaffInputActivity : AppCompatActivity() {
                     VisitReportPdfGenerator(this).generate(input, loadedPhotos, null, outputFile)
                     Toast.makeText(this, "Visit Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
                     Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
+
+                    // Scan file with MediaScanner so it appears instantly in File Manager / Recent files
+                    android.media.MediaScannerConnection.scanFile(
+                        this,
+                        arrayOf(outputFile.absolutePath),
+                        arrayOf("application/pdf")
+                    ) { path, uri ->
+                        Log.d("StaffInputActivity", "PDF registered with MediaScanner: $path -> $uri")
+                    }
 
                     // Open the PDF immediately
                     openPdfFile(outputFile)
