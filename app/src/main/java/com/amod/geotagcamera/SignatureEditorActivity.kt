@@ -379,84 +379,107 @@ class SignatureEditorActivity : AppCompatActivity() {
         val width = source.width
         val height = source.height
 
-        // Advanced local illumination background estimation using fast native bilinear down/up scaling
-        val scaleFactor = 16
-        val dsWidth = (width / scaleFactor).coerceAtLeast(8)
-        val dsHeight = (height / scaleFactor).coerceAtLeast(8)
-        
-        val downscaled = Bitmap.createScaledBitmap(source, dsWidth, dsHeight, true)
-        val bgBmpScaled = Bitmap.createScaledBitmap(downscaled, width, height, true)
-        downscaled.recycle()
-
         val originalPixels = IntArray(width * height)
-        val bgPixels = IntArray(width * height)
         source.getPixels(originalPixels, 0, width, 0, 0, width, height)
-        bgBmpScaled.getPixels(bgPixels, 0, width, 0, 0, width, height)
-        bgBmpScaled.recycle()
 
-        // Linear mapping from threshold (0..255) to local subtraction constant C
-        val C = (255 - threshold) * 0.15f + 1.5f
-        val maxDiff = 90f // Sharper transition range to make signature lines darker and bolder
-
+        val grayPixels = IntArray(width * height)
         for (i in originalPixels.indices) {
             val p = originalPixels[i]
-            val bgP = bgPixels[i]
-
             val r = (p shr 16) and 0xFF
             val g = (p shr 8) and 0xFF
             val b = p and 0xFF
-            val a = (p shr 24) and 0xFF
+            grayPixels[i] = (0.299f * r + 0.587f * g + 0.114f * b).toInt()
+        }
 
-            val bgR = (bgP shr 16) and 0xFF
-            val bgG = (bgP shr 8) and 0xFF
-            val bgB = bgP and 0xFF
+        // 1D integral images (flat arrays for memory locality and performance)
+        val intImg = LongArray(width * height)
+        val intSqImg = LongArray(width * height)
 
-            // Compute luminance
-            val y = 0.299f * r + 0.587f * g + 0.114f * b
-            val bgY = 0.299f * bgR + 0.587f * bgG + 0.114f * bgB
-
-            val diff = bgY - y
-
-            if (filterMode == FilterMode.TRANSPARENT_INK) {
-                // If pixel is darker than local background minus constant C, it is ink
-                if (diff > C) {
-                    val pct = ((diff - C) / maxDiff).coerceIn(0f, 1f)
-                    // Denoising gate: ignore tiny speckles, focus on real signature lines
-                    val boostedPct = if (pct < 0.03f) {
-                        0f
-                    } else {
-                        val normalized = (pct - 0.03f) / 0.97f
-                        Math.pow(normalized.toDouble(), 0.15).toFloat() // Strong power boost for bold black lines
-                    }
-                    
-                    if (boostedPct > 0f) {
-                        val finalAlpha = ((boostedPct * 255) * a / 255).toInt().coerceIn(0, 255)
-                        originalPixels[i] = (finalAlpha shl 24) or 0x000000 // Smooth black ink
-                    } else {
-                        originalPixels[i] = Color.TRANSPARENT
-                    }
+        // Compute 2D integral images (Summed Area Tables) in a single fast row-major pass
+        for (y in 0 until height) {
+            var rowSum = 0L
+            var rowSqSum = 0L
+            for (x in 0 until width) {
+                val idx = y * width + x
+                val valGray = grayPixels[idx].toLong()
+                rowSum += valGray
+                rowSqSum += valGray * valGray
+                
+                if (y == 0) {
+                    intImg[idx] = rowSum
+                    intSqImg[idx] = rowSqSum
                 } else {
-                    originalPixels[i] = Color.TRANSPARENT
+                    val prevRowIdx = (y - 1) * width + x
+                    intImg[idx] = intImg[prevRowIdx] + rowSum
+                    intSqImg[idx] = intSqImg[prevRowIdx] + rowSqSum
                 }
-            } else if (filterMode == FilterMode.CLEAN_PAPER) {
-                if (diff > C) {
-                    val pct = ((diff - C) / maxDiff).coerceIn(0f, 1f)
-                    val boostedPct = if (pct < 0.03f) {
-                        0f
+            }
+        }
+
+        // O(1) rectangular lookup function
+        fun getRectSum(intA: LongArray, x1: Int, y1: Int, x2: Int, y2: Int): Long {
+            val idxBottomRight = y2 * width + x2
+            val idxBottomLeft = y2 * width + (x1 - 1)
+            val idxTopRight = (y1 - 1) * width + x2
+            val idxTopLeft = (y1 - 1) * width + (x1 - 1)
+            
+            var sum = intA[idxBottomRight]
+            if (x1 > 0) sum -= intA[idxBottomLeft]
+            if (y1 > 0) sum -= intA[idxTopRight]
+            if (x1 > 0 && y1 > 0) sum += intA[idxTopLeft]
+            return sum
+        }
+
+        // Map threshold (0..255) to Sauvola k-factor
+        val k = (255 - threshold) * 0.0015f + 0.05f
+        
+        // Dynamic local window size (approx 5% of width, odd number)
+        val windowSize = ((width / 20) or 1).coerceAtLeast(15)
+        val halfW = windowSize / 2
+        val R = 128f
+
+        for (y in 0 until height) {
+            val y1 = (y - halfW).coerceAtLeast(0)
+            val y2 = (y + halfW).coerceAtMost(height - 1)
+            
+            for (x in 0 until width) {
+                val x1 = (x - halfW).coerceAtLeast(0)
+                val x2 = (x + halfW).coerceAtMost(width - 1)
+                
+                val count = (x2 - x1 + 1) * (y2 - y1 + 1)
+                val sum = getRectSum(intImg, x1, y1, x2, y2)
+                val sumSq = getRectSum(intSqImg, x1, y1, x2, y2)
+                
+                val m = sum.toFloat() / count
+                val variance = (sumSq.toFloat() - (sum.toFloat() * sum.toFloat() / count)) / count
+                val s = Math.sqrt(variance.coerceAtLeast(0f).toDouble()).toFloat()
+                
+                // Sauvola Adaptive Threshold formula: T = m * (1 + k * (s / 128 - 1))
+                val T = m * (1f + k * (s / R - 1f))
+                
+                val idx = y * width + x
+                val valLuma = grayPixels[idx]
+                val a = (originalPixels[idx] shr 24) and 0xFF
+
+                if (filterMode == FilterMode.TRANSPARENT_INK) {
+                    if (valLuma < T) {
+                        val diff = T - valLuma
+                        // Smooth edge anti-aliasing
+                        val finalAlpha = ((diff / 8f).coerceIn(0f, 1f) * 255).toInt()
+                        val mergedAlpha = (finalAlpha * a / 255).coerceIn(0, 255)
+                        originalPixels[idx] = (mergedAlpha shl 24) or 0x000000 // Pure black ink with alpha
                     } else {
-                        val normalized = (pct - 0.03f) / 0.97f
-                        Math.pow(normalized.toDouble(), 0.15).toFloat()
+                        originalPixels[idx] = Color.TRANSPARENT
                     }
-                    
-                    if (boostedPct > 0f) {
-                        val finalAlpha = (boostedPct * 255).toInt().coerceIn(0, 255)
+                } else if (filterMode == FilterMode.CLEAN_PAPER) {
+                    if (valLuma < T) {
+                        val diff = T - valLuma
+                        val finalAlpha = ((diff / 8f).coerceIn(0f, 1f) * 255).toInt()
                         val gray = (255 - finalAlpha).coerceIn(0, 255)
-                        originalPixels[i] = (0xFF shl 24) or (gray shl 16) or (gray shl 8) or gray // High-contrast smooth black ink
+                        originalPixels[idx] = (0xFF shl 24) or (gray shl 16) or (gray shl 8) or gray // Smooth black ink
                     } else {
-                        originalPixels[i] = -0x1
+                        originalPixels[idx] = -0x1 // Pure solid white paper background
                     }
-                } else {
-                    originalPixels[i] = -0x1 // Pure solid white paper background
                 }
             }
         }
