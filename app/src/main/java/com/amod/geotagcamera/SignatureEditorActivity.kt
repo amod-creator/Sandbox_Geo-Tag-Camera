@@ -287,11 +287,53 @@ class SignatureEditorActivity : AppCompatActivity() {
         }
     }
 
+    private fun scaleBitmapIfNeeded(bitmap: Bitmap, maxDim: Int = 1024): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= maxDim && height <= maxDim) return bitmap
+        
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+        if (width > height) {
+            newWidth = maxDim
+            newHeight = (maxDim / ratio).toInt()
+        } else {
+            newHeight = maxDim
+            newWidth = (maxDim * ratio).toInt()
+        }
+        val scaled = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        bitmap.recycle()
+        return scaled
+    }
+
     private fun loadAndCorrectImage(path: String): Bitmap? {
         try {
             val file = File(path)
             if (!file.exists()) return null
-            val rawBitmap = BitmapFactory.decodeFile(path) ?: return null
+
+            // First, decode bounds only to determine raw dimensions and calculate optimal inSampleSize
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(path, options)
+            
+            val reqWidth = 1024
+            val reqHeight = 1024
+            var inSampleSize = 1
+            if (options.outHeight > reqHeight || options.outWidth > reqWidth) {
+                val halfHeight = options.outHeight / 2
+                val halfWidth = options.outWidth / 2
+                while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                    inSampleSize *= 2
+                }
+            }
+            
+            // Decode downscaled bitmap using optimal sample size to save heap memory
+            val decodeOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+            }
+            val rawBitmap = BitmapFactory.decodeFile(path, decodeOptions) ?: return null
 
             // Read EXIF orientation to correct rotated pictures
             val exif = androidx.exifinterface.media.ExifInterface(path)
@@ -307,11 +349,14 @@ class SignatureEditorActivity : AppCompatActivity() {
                 else -> 0
             }
 
-            return if (rotationAngle != 0) {
+            val corrected = if (rotationAngle != 0) {
                 rotateBitmap(rawBitmap, rotationAngle)
             } else {
                 rawBitmap
             }
+
+            // Ensure the final bitmap is exactly within 1024px maximum bounds
+            return scaleBitmapIfNeeded(corrected, 1024)
         } catch (e: Exception) {
             Log.e("SigEditor", "Error reading/correcting image: ${e.message}", e)
             return null
