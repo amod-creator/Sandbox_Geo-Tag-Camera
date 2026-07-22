@@ -41,6 +41,12 @@ class SignatureEditorActivity : AppCompatActivity() {
         binding = ActivitySignatureEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Make root clickable to hide navigation bar when clicked
+        binding.root.isClickable = true
+        binding.root.setOnClickListener {
+            hideNavigationBar()
+        }
+
         // Set up toolbar back button
         binding.sigEditorToolbar.setNavigationOnClickListener {
             setResult(Activity.RESULT_CANCELED)
@@ -457,6 +463,33 @@ class SignatureEditorActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("SigEditor", "Error saving final signature: ${e.message}", e)
             Toast.makeText(this, "Failed to save edited signature", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hideNavigationBar()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideNavigationBar()
+        }
+    }
+
+    private fun hideNavigationBar() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            window.insetsController?.let { controller ->
+                controller.hide(android.view.WindowInsets.Type.navigationBars())
+                controller.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                    android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    )
         }
     }
 }
