@@ -1143,6 +1143,15 @@ class MainActivity : AppCompatActivity() {
             addrText,
             dateTimeText
         )
+
+        // Notify MediaScanner to scan the newly created PDF file so it appears instantly in File Manager / Recent files
+        android.media.MediaScannerConnection.scanFile(
+            this,
+            arrayOf(pdfFile.absolutePath),
+            arrayOf("application/pdf")
+        ) { path, uri ->
+            Log.d("MainActivity", "PDF registered with MediaScanner: $path -> $uri")
+        }
     }
 
     private fun fetchAddress(location: Location) {
