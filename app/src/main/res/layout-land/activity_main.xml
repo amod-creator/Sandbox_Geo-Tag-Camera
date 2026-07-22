@@ -103,22 +103,37 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/buttonLayout">
 
-        <TextView
-            android:id="@+id/badgeText"
+        <LinearLayout
+            android:id="@+id/badgeContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="0dp"
-            android:text="Ad Free GPS Cam Visit Pro"
-            android:textColor="#FFFFFF"
-            android:textSize="7sp"
-            android:textStyle="bold"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:paddingStart="4dp"
             android:paddingEnd="4dp"
             android:paddingTop="2dp"
             android:paddingBottom="2dp"
-            android:background="@drawable/badge_background"/>
+            android:background="@drawable/badge_background">
+
+            <ImageView
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:layout_marginEnd="2dp"
+                android:src="@mipmap/ic_launcher_round"
+                android:contentDescription="App Icon" />
+
+            <TextView
+                android:id="@+id/badgeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ad Free GPS Cam Visit Pro"
+                android:textColor="#FFFFFF"
+                android:textSize="7sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/gpsOverlayCard"
@@ -190,8 +205,9 @@
                         android:id="@+id/geo_address"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:maxLines="4"
+                        android:layout_marginBottom="0dp"
+                        android:includeFontPadding="false"
+                        android:maxLines="6"
                         android:lineSpacingExtra="2dp"
                         android:breakStrategy="balanced"
                         android:singleLine="false"
@@ -199,9 +215,18 @@
 
                     <TextView
                         style="@style/TextAppearance.App.GpsOverlayValue"
+                        android:id="@+id/geo_latlon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:text="Lat --°   Long --°"/>
+
+                    <TextView
+                        style="@style/TextAppearance.App.GpsOverlayValue"
                         android:id="@+id/geo_datetime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:visibility="gone"
                         android:text="@string/datetime_format"/>
                 </LinearLayout>
             </LinearLayout>

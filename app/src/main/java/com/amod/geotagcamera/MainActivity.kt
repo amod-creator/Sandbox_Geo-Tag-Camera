@@ -736,18 +736,22 @@ class MainActivity : AppCompatActivity() {
         // Bold city/state header with flag
         cityHeaderView.text = extractCityStateCountry(address)
 
-        // Full address
-        addrView.text = address
-
         // Combined Lat/Long in one line
-        latLonView.text = if (lat != null && lon != null) {
+        val latLonText = if (lat != null && lon != null) {
             "Lat %.5f°   Long %.5f°".format(lat, lon)
         } else {
             "Lat --°   Long --°"
         }
 
         // Date/time in 12hr format
-        dateTimeView.text = SimpleDateFormat("EEEE, dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
+        val dateTimeText = SimpleDateFormat("EEEE, dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
+
+        // Merge all values into the address TextView for uniform line spacing
+        addrView.text = "$address\n$latLonText\n$dateTimeText"
+
+        // Update hidden views for backwards compatibility and state tracking
+        latLonView.text = latLonText
+        dateTimeView.text = dateTimeText
 
         // For backward compatibility with PDF/gallery overlay
         lastOverlayLatText = lat?.let { "%.5f".format(it) } ?: "--"

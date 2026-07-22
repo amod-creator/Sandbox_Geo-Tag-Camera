@@ -102,15 +102,35 @@ class GpsOverlayRenderer(private val context: Context) {
             }
             val padX = 4f * globalScale
             val padY = 2f * globalScale
-            val badgeW = badgeTextPaint.measureText(badgeText) + padX * 2
-            val badgeH = badgeTextPaint.textSize + padY * 2
+
+            // Load and draw App Icon in badge
+            val appIconDrawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher_round)
+            val appIconBitmap = if (appIconDrawable is BitmapDrawable) {
+                appIconDrawable.bitmap
+            } else {
+                val bitmap = Bitmap.createBitmap(
+                    appIconDrawable?.intrinsicWidth ?: 1,
+                    appIconDrawable?.intrinsicHeight ?: 1,
+                    Bitmap.Config.ARGB_8888
+                )
+                val appCanvas = Canvas(bitmap)
+                appIconDrawable?.setBounds(0, 0, appCanvas.width, appCanvas.height)
+                appIconDrawable?.draw(appCanvas)
+                bitmap
+            }
+
+            val iconSize = badgeTextPaint.textSize * 1.1f
+            val iconMarginRight = 2f * globalScale
+            val badgeW = iconSize + iconMarginRight + badgeTextPaint.measureText(badgeText) + padX * 2
+            val badgeH = maxOf(iconSize, badgeTextPaint.textSize) + padY * 2
 
             val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
-            val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
-            val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
-            val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
+            
+            // Merge all details into a single StaticLayout for uniform line spacing
+            val detailsText = "$address\n$combinedLatLon\n$datetime"
+            val detailsLayout = StaticLayout.Builder.obtain(detailsText, 0, detailsText.length, valuePaint, textAreaWidth.toInt()).build()
 
-            val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+            val textBlockHeight = (headerLayout.height + detailsLayout.height + lineSpacing).toFloat()
             val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
             val overlayBottom = videoHeight - overlayPadding
@@ -169,19 +189,25 @@ class GpsOverlayRenderer(private val context: Context) {
             val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
             val badgeRadius = 2f * globalScale
             canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-            canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
+
+            // Draw app icon inside the badge
+            val iconLeft = badgeLeft + padX
+            val iconTop = badgeTop + (badgeH - iconSize) / 2
+            val srcRect = Rect(0, 0, appIconBitmap.width, appIconBitmap.height)
+            val dstRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+            canvas.drawBitmap(appIconBitmap, srcRect, dstRect, Paint(Paint.FILTER_BITMAP_FLAG))
+
+            // Draw badge text
+            canvas.drawText(badgeText, iconLeft + iconSize + iconMarginRight, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
             val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-            val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
+            // Shift text block slightly up
+            val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2 - 8f * globalScale
             canvas.save()
             canvas.translate(textStartX, textStartY)
             headerLayout.draw(canvas)
             canvas.translate(0f, headerLayout.height.toFloat() + lineSpacing)
-            addrLayout.draw(canvas)
-            canvas.translate(0f, addrLayout.height.toFloat() + lineSpacing)
-            latLonLayout.draw(canvas)
-            canvas.translate(0f, latLonLayout.height.toFloat() + lineSpacing)
-            dateLayout.draw(canvas)
+            detailsLayout.draw(canvas)
             canvas.restore()
 
             return resultBitmap
@@ -307,15 +333,35 @@ class GpsOverlayRenderer(private val context: Context) {
         }
         val padX = 4f * globalScale
         val padY = 2f * globalScale
-        val badgeW = badgeTextPaint.measureText(badgeText) + padX * 2
-        val badgeH = badgeTextPaint.textSize + padY * 2
+
+        // Load and draw App Icon in badge
+        val appIconDrawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher_round)
+        val appIconBitmap = if (appIconDrawable is BitmapDrawable) {
+            appIconDrawable.bitmap
+        } else {
+            val bitmap = Bitmap.createBitmap(
+                appIconDrawable?.intrinsicWidth ?: 1,
+                appIconDrawable?.intrinsicHeight ?: 1,
+                Bitmap.Config.ARGB_8888
+            )
+            val appCanvas = Canvas(bitmap)
+            appIconDrawable?.setBounds(0, 0, appCanvas.width, appCanvas.height)
+            appIconDrawable?.draw(appCanvas)
+            bitmap
+        }
+
+        val iconSize = badgeTextPaint.textSize * 1.1f
+        val iconMarginRight = 2f * globalScale
+        val badgeW = iconSize + iconMarginRight + badgeTextPaint.measureText(badgeText) + padX * 2
+        val badgeH = maxOf(iconSize, badgeTextPaint.textSize) + padY * 2
 
         val headerLayout = StaticLayout.Builder.obtain(cityHeader, 0, cityHeader.length, headerPaint, textAreaWidth.toInt()).build()
-        val addrLayout = StaticLayout.Builder.obtain(address, 0, address.length, valuePaint, textAreaWidth.toInt()).build()
-        val latLonLayout = StaticLayout.Builder.obtain(combinedLatLon, 0, combinedLatLon.length, valuePaint, textAreaWidth.toInt()).build()
-        val dateLayout = StaticLayout.Builder.obtain(datetime, 0, datetime.length, valuePaint, textAreaWidth.toInt()).build()
+        
+        // Merge all details into a single StaticLayout for uniform line spacing
+        val detailsText = "$address\n$combinedLatLon\n$datetime"
+        val detailsLayout = StaticLayout.Builder.obtain(detailsText, 0, detailsText.length, valuePaint, textAreaWidth.toInt()).build()
 
-        val textBlockHeight = (headerLayout.height + addrLayout.height + latLonLayout.height + dateLayout.height + lineSpacing * 3).toFloat()
+        val textBlockHeight = (headerLayout.height + detailsLayout.height + lineSpacing).toFloat()
         val overlayHeight = max(thumbHeight, textBlockHeight) + (overlayPadding * 2)
 
         val overlayBottom = resultBitmap.height - overlayPadding
@@ -379,20 +425,26 @@ class GpsOverlayRenderer(private val context: Context) {
         val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
         val badgeRadius = 2f * globalScale
         canvas.drawRoundRect(badgeRect, badgeRadius, badgeRadius, badgePaint)
-        canvas.drawText(badgeText, badgeLeft + padX, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
+
+        // Draw app icon inside the badge
+        val iconLeft = badgeLeft + padX
+        val iconTop = badgeTop + (badgeH - iconSize) / 2
+        val srcRect = Rect(0, 0, appIconBitmap.width, appIconBitmap.height)
+        val dstRect = RectF(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
+        canvas.drawBitmap(appIconBitmap, srcRect, dstRect, Paint(Paint.FILTER_BITMAP_FLAG))
+
+        // Draw badge text
+        canvas.drawText(badgeText, iconLeft + iconSize + iconMarginRight, badgeBottom - padY - 0.5f * globalScale, badgeTextPaint)
 
         // Draw text block
         val textStartX = overlayLeft + contentInternalPadding + fixedThumbWidth + contentInternalPadding
-        val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2
+        // Shift text block slightly up
+        val textStartY = overlayTop + (overlayHeight - textBlockHeight) / 2 - 8f * globalScale
         canvas.save()
         canvas.translate(textStartX, textStartY)
         headerLayout.draw(canvas)
         canvas.translate(0f, headerLayout.height.toFloat() + lineSpacing)
-        addrLayout.draw(canvas)
-        canvas.translate(0f, addrLayout.height.toFloat() + lineSpacing)
-        latLonLayout.draw(canvas)
-        canvas.translate(0f, latLonLayout.height.toFloat() + lineSpacing)
-        dateLayout.draw(canvas)
+        detailsLayout.draw(canvas)
         canvas.restore()
 
         return resultBitmap
