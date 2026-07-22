@@ -353,7 +353,7 @@ class VisitReportPdfGenerator(private val context: Context) {
             val signatureOffsetY = sharedPrefs.getFloat("signature_pdf_offset_y", 0f)
             val signatureRotation = sharedPrefs.getFloat("signature_pdf_rotation", 0f)
 
-            val sigLeft = startX + (signatureOffsetX * gapScale) - 15f * gapScale
+            val sigLeft = startX + (signatureOffsetX * gapScale) - 35f * gapScale
             val sigTop = sigY - drawH - (2f * gapScale) + (signatureOffsetY * gapScale)
 
             canvas.save()
