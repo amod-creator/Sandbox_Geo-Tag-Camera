@@ -1,10 +1,10 @@
 import java.util.Properties
-import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("kapt")
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -15,8 +15,8 @@ android {
         applicationId = "com.amod.geotagcamera"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "10.0"
+        versionCode = 13
+        versionName = "12.1"
         vectorDrawables.useSupportLibrary = true
 
         // Read API key from local.properties
@@ -66,10 +66,6 @@ android {
         buildConfig = true  // Enable BuildConfig generation
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
-    }
-
     packagingOptions {
         jniLibs {
             useLegacyPackaging = false
@@ -89,11 +85,18 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
     // CameraX – ensure camera-view is present for ImplementationMode
-    implementation("androidx.camera:camera-core:1.3.1")
+    implementation("androidx.camera:camera-core:1.4.2")
     implementation("androidx.camera:camera-camera2:1.4.2")
-    implementation("androidx.camera:camera-lifecycle:1.3.1")
-    implementation("androidx.camera:camera-view:1.3.1")
-    implementation("androidx.camera:camera-video:1.3.1") // Video recording
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("androidx.camera:camera-video:1.4.2") // Video recording
+    implementation("androidx.camera:camera-effects:1.4.2") // Overlays for video
+
+    // Media3 Transformer for video post-processing
+    val media3Version = "1.3.1"
+    implementation("androidx.media3:media3-transformer:$media3Version")
+    implementation("androidx.media3:media3-effect:$media3Version")
+    implementation("androidx.media3:media3-common:$media3Version")
 
     // Google Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
@@ -123,9 +126,6 @@ dependencies {
 
 configurations.all {
     resolutionStrategy.force(
-        "com.squareup.okio:okio-jvm:3.6.0",  // Downgrading okio version for compatibility
-        "org.jetbrains.kotlin:kotlin-stdlib:1.9.0",
-        "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0",
-        "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0"
+        "com.squareup.okio:okio-jvm:3.6.0"  // Keep this if it helps with itext/okhttp conflicts
     )
 }
