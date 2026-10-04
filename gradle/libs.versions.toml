@@ -12,8 +12,8 @@ composeBom = "2024.09.00"
 kernel = "7.2.5"
 layout = "7.2.5"
 io = "7.2.5"
-kotlinGradlePlugin = "1.9.22"
-jetbrainsKotlinJvm = "1.9.22"
+kotlinGradlePlugin = "2.0.21"
+jetbrainsKotlinJvm = "2.0.21"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }

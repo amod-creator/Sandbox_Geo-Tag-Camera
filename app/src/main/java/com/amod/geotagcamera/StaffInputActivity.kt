@@ -19,6 +19,9 @@ import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import android.graphics.Color
+import android.os.Build
 import com.amod.geotagcamera.databinding.StaffInputBinding
 
 class StaffInputActivity : AppCompatActivity() {
@@ -29,8 +32,22 @@ class StaffInputActivity : AppCompatActivity() {
     private val loadedPhotos = mutableListOf<android.graphics.Bitmap>()
     private val photoPaths = mutableListOf<String>()
     private val photoGpsList = mutableListOf<String>()
+    private var collageBitmap: android.graphics.Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
 
 
@@ -43,8 +60,9 @@ class StaffInputActivity : AppCompatActivity() {
         // Load photos from file paths
         loadPhotosFromPaths()
 
-        // Automatically fill GPS Location field with the first photo's GPS Address
-        val firstGps = photoGpsList.firstOrNull()
+        // Automatically fill GPS Location field with Collage GPS Address or first photo's GPS Address
+        val collageGps = intent.getStringExtra("COLLAGE_GPS_ADDRESS")
+        val firstGps = if (!collageGps.isNullOrBlank()) collageGps else photoGpsList.firstOrNull()
         if (!firstGps.isNullOrBlank()) {
             binding.gpsLocationInput.setText(firstGps)
         } else {
@@ -231,7 +249,11 @@ class StaffInputActivity : AppCompatActivity() {
                 val outputFile = java.io.File(pdfDir, pdfFileName)
 
                 try {
-                    AgriPssPdfGenerator(this).generate(input, outputFile)
+                    val isCollageReport = collageBitmap != null || intent.getBooleanExtra("IS_COLLAGE_REPORT", false)
+                    val collage = if (isCollageReport) (collageBitmap ?: loadedPhotos.firstOrNull()) else null
+                    val photosToPass = if (collage != null) emptyList() else loadedPhotos
+
+                    AgriPssPdfGenerator(this).generate(input, outputFile, collage, photosToPass)
                     Toast.makeText(this, "AGRI PSS Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
                     Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
 
@@ -302,7 +324,11 @@ class StaffInputActivity : AppCompatActivity() {
                 val outputFile = java.io.File(pdfDir, pdfFileName)
 
                 try {
-                    VisitReportPdfGenerator(this).generate(input, loadedPhotos, null, outputFile)
+                    val isCollageReport = collageBitmap != null || intent.getBooleanExtra("IS_COLLAGE_REPORT", false)
+                    val collage = if (isCollageReport) (collageBitmap ?: loadedPhotos.firstOrNull()) else null
+                    val photosToPass = if (collage != null) emptyList() else loadedPhotos
+
+                    VisitReportPdfGenerator(this).generate(input, photosToPass, collage, outputFile)
                     Toast.makeText(this, "Visit Report saved to Documents/GPS Cam Visit Pro", Toast.LENGTH_LONG).show()
                     Log.d("StaffInputActivity", "PDF saved to: ${outputFile.absolutePath}")
 
@@ -410,6 +436,7 @@ class StaffInputActivity : AppCompatActivity() {
         photoPaths.clear()
         loadedPhotos.clear()
         photoGpsList.clear()
+        collageBitmap = null
 
         val collagePath = intent.getStringExtra("COLLAGE_IMAGE_PATH")
         if (!collagePath.isNullOrBlank()) {
@@ -417,9 +444,11 @@ class StaffInputActivity : AppCompatActivity() {
             try {
                 val bitmap = BitmapFactory.decodeFile(collagePath)
                 if (bitmap != null) {
+                    collageBitmap = bitmap
                     loadedPhotos.add(bitmap)
                     photoPaths.add(collagePath)
-                    photoGpsList.add("") // Collage has no individual GPS tag
+                    val collageGps = intent.getStringExtra("COLLAGE_GPS_ADDRESS") ?: ""
+                    photoGpsList.add(collageGps)
                     Log.d("StaffInputActivity", "Loaded collage image from: $collagePath")
                 } else {
                     Log.w("StaffInputActivity", "Failed to decode collage image from: $collagePath")

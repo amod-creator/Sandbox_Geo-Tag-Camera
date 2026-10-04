@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#A6121212"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="32dp"
+    android:paddingBottom="32dp">
+
+    <!-- Header / Title with close '✕' button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Camera Functions"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <FrameLayout
+            android:id="@+id/btn_close_options"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="✕"
+                android:textColor="#888888"
+                android:textSize="20sp" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Grid Layout of Options (3 Columns, 5 Symmetrical Rows) -->
+    <!-- Row 1 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <!-- 1. Ratio -->
+        <LinearLayout
+            android:id="@+id/card_ratio"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_ratio"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_ratio_option"
+                android:contentDescription="Ratio Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_ratio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ratio 16:9"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 2. Grid -->
+        <LinearLayout
+            android:id="@+id/card_grid"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_grid"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_grid_option"
+                android:contentDescription="Grid Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_grid"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Grid Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 3. Timer -->
+        <LinearLayout
+            android:id="@+id/card_timer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_timer"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_timer_option"
+                android:contentDescription="Timer Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Timer Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 2 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <!-- 4. Focus -->
+        <LinearLayout
+            android:id="@+id/card_focus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_focus"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_focus_option"
+                android:contentDescription="Focus Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_focus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Focus Manual"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 5. Mirror -->
+        <LinearLayout
+            android:id="@+id/card_mirror"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_mirror"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_mirror_option"
+                android:contentDescription="Mirror Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_mirror"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mirror Off"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 6. Sound -->
+        <LinearLayout
+            android:id="@+id/card_sound"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_sound"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_sound_option"
+                android:contentDescription="Sound Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_sound"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sound On"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 3 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <!-- 7. White Balance -->
+        <LinearLayout
+            android:id="@+id/card_wb"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_wb"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_wb_option"
+                android:contentDescription="WB Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_wb"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="White Balance"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 8. Camera Level -->
+        <LinearLayout
+            android:id="@+id/card_level"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_level"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_level_option"
+                android:contentDescription="Level Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_level"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Camera Level"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 9. Add Text -->
+        <LinearLayout
+            android:id="@+id/card_addtext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_addtext"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_text_option"
+                android:contentDescription="Text Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_addtext"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add Text"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 4 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <!-- 10. Record Video with Voice -->
+        <LinearLayout
+            android:id="@+id/card_voice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_voice"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_voice_option"
+                android:contentDescription="Voice Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_voice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Record Video with Voice"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 11. Flash Light -->
+        <LinearLayout
+            android:id="@+id/card_flash"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_flash"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_flash_option"
+                android:contentDescription="Flash Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_flash"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Flash Auto"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 12. Camera Lens -->
+        <LinearLayout
+            android:id="@+id/card_lens"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_lens"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_lens_option"
+                android:contentDescription="Lens Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_lens"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Camera Lens"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 5 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- 13. Camera Stamp -->
+        <LinearLayout
+            android:id="@+id/card_stamp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_stamp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_stamp_option"
+                android:contentDescription="Stamp Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_stamp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Cam Stamp"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 14. GPS Telemetry -->
+        <LinearLayout
+            android:id="@+id/card_telemetry"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_telemetry"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_telemetry_option"
+                android:contentDescription="Telemetry Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_telemetry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Telemetry"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 15. Time Format -->
+        <LinearLayout
+            android:id="@+id/card_time_format"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/icon_time_format"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_time_option"
+                android:contentDescription="Time Format Icon"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/val_time_format"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Time Mode"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

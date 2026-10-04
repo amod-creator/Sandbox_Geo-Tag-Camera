@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/editorRootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#4D000000"
+    android:fitsSystemWindows="false">
+
+    <!-- Top Navigation Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_alignParentTop="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <!-- Cancel / Close button -->
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/btn_instagram_circle"
+            android:src="@drawable/ic_close_white"
+            app:tint="@android:color/white"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Cancel" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- Alignment Toggle Button -->
+        <ImageButton
+            android:id="@+id/btnAlignment"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/btn_instagram_circle"
+            android:src="@drawable/ic_format_align_center"
+            app:tint="@android:color/white"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Toggle Alignment" />
+
+        <!-- Highlight / Background Style Button -->
+        <ImageButton
+            android:id="@+id/btnHighlight"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/btn_instagram_circle"
+            android:src="@drawable/ic_text_highlight"
+            app:tint="@android:color/white"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Text Background Style" />
+
+        <!-- Position Toggle Button -->
+        <TextView
+            android:id="@+id/btnPosition"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/badge_instagram_pill"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="Above Card"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <!-- Done Button -->
+        <TextView
+            android:id="@+id/btnDone"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/badge_template_pill"
+            android:backgroundTint="#FFFFFF"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Done"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- Left Side: Instagram Vertical Font Size Slider Track -->
+    <LinearLayout
+        android:id="@+id/verticalSliderContainer"
+        android:layout_width="48dp"
+        android:layout_height="180dp"
+        android:layout_alignParentStart="true"
+        android:layout_below="@id/topBar"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="8dp"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvSizeIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Aa"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Custom Touch Slider Bar -->
+        <FrameLayout
+            android:id="@+id/sliderTouchTrack"
+            android:layout_width="32dp"
+            android:layout_height="140dp"
+            android:background="@drawable/btn_instagram_circle"
+            android:padding="4dp">
+
+            <!-- Active track fill -->
+            <View
+                android:id="@+id/sliderFill"
+                android:layout_width="4dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_horizontal|bottom"
+                android:background="#40FFFFFF" />
+
+            <!-- Thumb indicator -->
+            <View
+                android:id="@+id/sliderThumb"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center_horizontal|top"
+                android:background="@drawable/btn_round_black_border"
+                android:backgroundTint="#FFFFFF" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Typing Area (Positioned at top before keyboard so what is written is always visible) -->
+    <ScrollView
+        android:id="@+id/scrollTextContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/topBar"
+        android:layout_above="@id/bottomControlArea"
+        android:layout_toEndOf="@id/verticalSliderContainer"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="16dp"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal|top"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Note Text Edit View -->
+            <EditText
+                android:id="@+id/etNoteContent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:gravity="center"
+                android:hint="Type Something"
+                android:textColorHint="#B3FFFFFF"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:maxLines="5"
+                android:inputType="textMultiLine|textCapSentences"
+                android:imeOptions="actionDone"
+                android:textCursorDrawable="@null" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom Controls Area -->
+    <LinearLayout
+        android:id="@+id/bottomControlArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:paddingBottom="16dp"
+        android:paddingTop="8dp"
+        android:background="#80000000">
+
+        <!-- Quick Inspiration Presets (Instagram Style tags) -->
+        <HorizontalScrollView
+            android:id="@+id/scrollPresets"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginBottom="8dp">
+
+            <LinearLayout
+                android:id="@+id/containerPresets"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- Font Family Selector (Carousel of font chips) -->
+        <HorizontalScrollView
+            android:id="@+id/scrollFonts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginBottom="8dp">
+
+            <LinearLayout
+                android:id="@+id/containerFonts"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- Text vs Background Color Mode Switcher -->
+        <LinearLayout
+            android:id="@+id/layoutColorModeSelector"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <TextView
+                android:id="@+id/tabTextColor"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:background="@drawable/badge_template_pill"
+                android:backgroundTint="#FFFFFF"
+                android:text="🔤 Text Color"
+                android:textColor="#000000"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginEnd="10dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/tabBgColor"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:background="@drawable/badge_instagram_pill"
+                android:text="🎨 Background"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+
+        <!-- Color Palette (Row of circular color swatches) -->
+        <HorizontalScrollView
+            android:id="@+id/scrollColors"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <LinearLayout
+                android:id="@+id/containerColors"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+    </LinearLayout>
+
+</RelativeLayout>

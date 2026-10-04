@@ -13,6 +13,8 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import android.os.Build
 import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -45,6 +47,19 @@ class ProfessionalCollageActivity : AppCompatActivity() {
     private var borderColor = Color.WHITE
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_professional_collage)
 

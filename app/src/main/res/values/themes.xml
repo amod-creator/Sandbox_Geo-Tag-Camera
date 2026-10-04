@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.GeoTagCamera" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.GeoTagCamera" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#1F3A60</item>
+        <item name="colorPrimaryVariant">#142640</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#FFC107</item>
+    </style>
 </resources>

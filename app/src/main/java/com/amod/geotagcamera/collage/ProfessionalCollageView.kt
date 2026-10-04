@@ -476,10 +476,35 @@ class ProfessionalCollageView @JvmOverloads constructor(
      * Scale gesture listener
      */
     private inner class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        private var prevFocusX = 0f
+        private var prevFocusY = 0f
+
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+            prevFocusX = detector.focusX
+            prevFocusY = detector.focusY
+            return true
+        }
+
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            selectedSlot?.let { slot ->
-                slot.scale *= detector.scaleFactor
-                slot.scale = slot.scale.coerceIn(0.5f, 3.0f) // Limit scale
+            val slot = selectedSlot ?: photoSlots.firstOrNull { it.containsPoint(detector.focusX, detector.focusY) }
+            slot?.let { s ->
+                // Update selectedSlot to the slotted focus
+                if (selectedSlot != s) {
+                    selectedSlot = s
+                }
+
+                // Update scale - can reduce the size down to 0.1f!
+                s.scale *= detector.scaleFactor
+                s.scale = s.scale.coerceIn(0.1f, 8.0f)
+
+                // Update pan / translate on drag with two fingers
+                val dx = detector.focusX - prevFocusX
+                val dy = detector.focusY - prevFocusY
+                prevFocusX = detector.focusX
+                prevFocusY = detector.focusY
+
+                s.offsetX += dx
+                s.offsetY += dy
                 invalidate()
             }
             return true

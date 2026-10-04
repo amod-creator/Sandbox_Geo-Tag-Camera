@@ -10,6 +10,9 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import android.os.Build
+import android.graphics.Color
 import com.amod.geotagcamera.R
 import com.amod.geotagcamera.databinding.ActivityEnhancedCollageEditorBinding
 import com.amod.geotagcamera.collage.adapters.*
@@ -44,6 +47,19 @@ class EnhancedCollageEditorActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
         binding = ActivityEnhancedCollageEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)

@@ -12,6 +12,7 @@
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        app:implementationMode="compatible"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -35,7 +36,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginBottom="12dp"
-            android:background="@android:color/transparent"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/btn_round_black_border"
             android:src="@drawable/ic_gallery"
             app:tint="@android:color/white"
             android:contentDescription="@string/gallery" />
@@ -45,7 +48,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginBottom="12dp"
-            android:background="@android:color/transparent"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/btn_round_black_border"
             android:src="@drawable/ic_prepare_report"
             app:tint="@android:color/white"
             android:contentDescription="@string/prepare_report" />
@@ -56,7 +61,6 @@
             android:layout_height="72dp"
             android:background="@android:color/transparent"
             android:src="@drawable/capture_button_bg"
-            app:tint="@android:color/white"
             android:contentDescription="@string/capture_photo" />
 
         <ImageButton
@@ -64,8 +68,10 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:background="@android:color/transparent"
-            android:src="@android:drawable/presence_video_online"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/btn_round_black_border"
+            android:src="@drawable/ic_video_record"
             app:tint="@android:color/white"
             android:contentDescription="@string/record_video" />
 
@@ -74,7 +80,9 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:background="@android:color/transparent"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/btn_round_black_border"
             android:src="@drawable/ic_collage"
             app:tint="@android:color/white"
             android:contentDescription="@string/collage" />
@@ -84,10 +92,119 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginTop="32dp"
-            android:background="@android:color/transparent"
+            android:padding="10dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/btn_round_black_border"
             android:src="@drawable/ic_camera_switch"
             android:contentDescription="@string/switch_camera" />
     </LinearLayout>
+
+    <!-- Interactive Custom Note / Text Sticker on Live Camera -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/liveCustomNoteContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/gpsOverlayWrapper"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/buttonLayout"
+        android:layout_marginBottom="12dp">
+
+        <!-- Inner Content Box with selectable bounding box border -->
+        <FrameLayout
+            android:id="@+id/stickerContentBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="15dp"
+            android:background="@drawable/sticker_border_selected"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:id="@+id/liveCustomNoteText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:text="Site Visit" />
+        </FrameLayout>
+
+        <!-- Top-Left: Delete button (Trash can icon in white circle) -->
+        <ImageButton
+            android:id="@+id/btnStickerDelete"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            app:layout_constraintTop_toTopOf="@+id/stickerContentBox"
+            app:layout_constraintBottom_toTopOf="@+id/stickerContentBox"
+            app:layout_constraintStart_toStartOf="@+id/stickerContentBox"
+            app:layout_constraintEnd_toStartOf="@+id/stickerContentBox"
+            android:background="@drawable/btn_sticker_control_circle"
+            android:src="@drawable/ic_sticker_delete"
+            android:scaleType="centerInside"
+            android:padding="5dp"
+            android:elevation="4dp"
+            android:contentDescription="Delete Text" />
+
+        <!-- Top-Right: Mirror/Flip button (Mirror icon in white circle) -->
+        <ImageButton
+            android:id="@+id/btnStickerMirror"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            app:layout_constraintTop_toTopOf="@+id/stickerContentBox"
+            app:layout_constraintBottom_toTopOf="@+id/stickerContentBox"
+            app:layout_constraintStart_toEndOf="@+id/stickerContentBox"
+            app:layout_constraintEnd_toEndOf="@+id/stickerContentBox"
+            android:background="@drawable/btn_sticker_control_circle"
+            android:src="@drawable/ic_sticker_mirror"
+            android:scaleType="centerInside"
+            android:padding="5dp"
+            android:elevation="4dp"
+            android:contentDescription="Mirror Text" />
+
+        <!-- Bottom-Left: Edit button (Pencil icon in white circle) -->
+        <ImageButton
+            android:id="@+id/btnStickerEdit"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            app:layout_constraintTop_toBottomOf="@+id/stickerContentBox"
+            app:layout_constraintBottom_toBottomOf="@+id/stickerContentBox"
+            app:layout_constraintStart_toStartOf="@+id/stickerContentBox"
+            app:layout_constraintEnd_toStartOf="@+id/stickerContentBox"
+            android:background="@drawable/btn_sticker_control_circle"
+            android:src="@drawable/ic_sticker_edit"
+            android:scaleType="centerInside"
+            android:padding="5dp"
+            android:elevation="4dp"
+            android:contentDescription="Edit Text" />
+
+        <!-- Bottom-Right: Resize & Rotate button (Diagonal arrows in white circle) -->
+        <ImageButton
+            android:id="@+id/btnStickerResize"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            app:layout_constraintTop_toBottomOf="@+id/stickerContentBox"
+            app:layout_constraintBottom_toBottomOf="@+id/stickerContentBox"
+            app:layout_constraintStart_toEndOf="@+id/stickerContentBox"
+            app:layout_constraintEnd_toEndOf="@+id/stickerContentBox"
+            android:background="@drawable/btn_sticker_control_circle"
+            android:src="@drawable/ic_sticker_resize"
+            android:scaleType="centerInside"
+            android:padding="5dp"
+            android:elevation="4dp"
+            android:contentDescription="Resize and Rotate Text" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <LinearLayout
         android:id="@+id/gpsOverlayWrapper"
@@ -103,6 +220,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/buttonLayout">
 
+        <!-- Separate Badge Overlay on top-right, outside of the GPS Overlay Card -->
         <LinearLayout
             android:id="@+id/badgeContainer"
             android:layout_width="wrap_content"
@@ -112,26 +230,28 @@
             android:layout_marginBottom="0dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp"
-            android:paddingTop="2dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
             android:paddingBottom="2dp"
             android:background="@drawable/badge_background">
 
             <ImageView
-                android:layout_width="10dp"
-                android:layout_height="10dp"
-                android:layout_marginEnd="2dp"
+                android:id="@+id/badgeAppThumbnail"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_marginEnd="4dp"
                 android:src="@mipmap/ic_launcher_round"
-                android:contentDescription="App Icon" />
+                android:scaleType="fitCenter"
+                android:contentDescription="App Thumbnail" />
 
             <TextView
                 android:id="@+id/badgeText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Ad Free GPS Cam Visit Pro"
+                android:text="Ads Free GPS Cam Visit Pro"
                 android:textColor="#FFFFFF"
-                android:textSize="7sp"
+                android:textSize="11sp"
                 android:textStyle="bold"/>
         </LinearLayout>
 
@@ -139,109 +259,385 @@
             android:id="@+id/gpsOverlayCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:elevation="16dp"
-            android:translationZ="16dp"
-            app:cardCornerRadius="0dp"
-            app:cardElevation="4dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:elevation="12dp"
+            android:translationZ="12dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackgroundBorderless"
-            android:backgroundTint="#99000000">
+            app:cardBackgroundColor="#CC101418">
 
             <LinearLayout
-                android:orientation="horizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:gravity="center_vertical"
-                android:baselineAligned="false">
+                android:orientation="vertical"
+                android:padding="8dp">
 
-                <FrameLayout
-                    android:id="@+id/liveMapThumbnailContainer"
-                    android:layout_width="0dp"
-                    android:layout_weight="0.8"
-                    android:layout_height="match_parent"
-                    android:minHeight="120dp">
+                <!-- DateTime Template Header (visible only for DateTime Template) -->
+                <LinearLayout
+                    android:id="@+id/liveDateTimeHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="gone">
 
-                    <ImageView
-                        android:id="@+id/liveMapThumbnail"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:adjustViewBounds="true"
-                        android:scaleType="centerCrop"
-                        android:contentDescription="@string/live_map_thumbnail"
-                        android:background="@drawable/rounded_corners"
-                        android:clickable="true"
-                        android:focusable="true"/>
+                    <TextView
+                        android:id="@+id/liveBigTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="09:15 PM"
+                        android:textColor="#FFFFFF"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
 
-                </FrameLayout>
+                    <View
+                        android:layout_width="2dp"
+                        android:layout_height="24dp"
+                        android:background="#FFC107"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/liveDateLine"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="20 September 2026"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/liveDayLine"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sunday"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <LinearLayout
-                    android:orientation="vertical"
-                    android:layout_width="0dp"
-                    android:layout_weight="1.2"
+                    android:id="@+id/gpsOverlayContent"
+                    android:orientation="horizontal"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp">
+                    android:gravity="center_vertical"
+                    android:baselineAligned="false">
 
-                    <TextView
-                        style="@style/TextAppearance.App.GpsOverlayTitle"
-                        android:id="@+id/geo_lat"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:text="@string/latitude_placeholder"/>
-
-                    <TextView
-                        style="@style/TextAppearance.App.GpsOverlayTitle"
-                        android:id="@+id/geo_lon"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:text="@string/longitude_placeholder"/>
-
-                    <TextView
-                        style="@style/TextAppearance.App.GpsOverlayValue"
-                        android:id="@+id/geo_address"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="0dp"
-                        android:includeFontPadding="false"
-                        android:maxLines="6"
-                        android:lineSpacingExtra="2dp"
-                        android:breakStrategy="balanced"
-                        android:singleLine="false"
-                        android:text="@string/address_placeholder"/>
-
-                    <TextView
-                        style="@style/TextAppearance.App.GpsOverlayValue"
-                        android:id="@+id/geo_latlon"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                    <!-- Compass Dial (visible only for Navigation Compass Template) -->
+                    <ImageView
+                        android:id="@+id/liveCompassDial"
+                        android:layout_width="88dp"
+                        android:layout_height="88dp"
+                        android:layout_marginStart="6dp"
+                        android:scaleType="fitCenter"
                         android:visibility="gone"
-                        android:text="Lat --°   Long --°"/>
+                        android:contentDescription="Compass Dial" />
 
-                    <TextView
-                        style="@style/TextAppearance.App.GpsOverlayValue"
-                        android:id="@+id/geo_datetime"
-                        android:layout_width="wrap_content"
+                    <!-- Map Thumbnail Card (Pristine 96dp Square with 8dp rounded corners on Left Corner) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/liveMapThumbnailCard"
+                        android:layout_width="96dp"
+                        android:layout_height="96dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginStart="6dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#212121">
+
+                        <FrameLayout
+                            android:id="@+id/liveMapThumbnailContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <ImageView
+                                android:id="@+id/liveMapThumbnail"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:contentDescription="@string/live_map_thumbnail"
+                                android:clickable="true"
+                                android:focusable="true"/>
+
+                            <!-- Google watermark at bottom-left of map thumbnail -->
+                            <TextView
+                                android:id="@+id/liveGoogleWatermark"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="bottom|start"
+                                android:layout_marginStart="4dp"
+                                android:layout_marginBottom="3dp"
+                                android:text="Google"
+                                android:textColor="#FFFFFF"
+                                android:textSize="9.5sp"
+                                android:textStyle="bold"
+                                android:shadowColor="#E6000000"
+                                android:shadowDx="1.5"
+                                android:shadowDy="1.5"
+                                android:shadowRadius="2" />
+
+                            <!-- Map data attribution watermark at bottom-right of map thumbnail -->
+                            <TextView
+                                android:id="@+id/liveMapDataWatermark"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="bottom|end"
+                                android:layout_marginEnd="4dp"
+                                android:layout_marginBottom="3dp"
+                                android:text="Map data ©2026"
+                                android:textColor="#D9FFFFFF"
+                                android:textSize="7sp"
+                                android:shadowColor="#E6000000"
+                                android:shadowDx="1.5"
+                                android:shadowDy="1.5"
+                                android:shadowRadius="2" />
+
+                            <!-- Check In ribbon for Reporting Template -->
+                            <TextView
+                                android:id="@+id/liveCheckInRibbon"
+                                android:layout_width="match_parent"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top"
+                                android:background="@drawable/template_check_in_badge"
+                                android:text="Check In"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:gravity="center"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Center Text Details: fills middle width with weight 1 -->
+                    <LinearLayout
+                        android:id="@+id/gpsOverlayTextContainer"
+                        android:orientation="vertical"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
-                        android:visibility="gone"
-                        android:text="@string/datetime_format"/>
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="8dp">
+
+                        <!-- Bold city/state header with flag -->
+                        <TextView
+                            android:id="@+id/geo_city_header"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="2dp"
+                            android:includeFontPadding="false"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:text="Location"/>
+
+                        <!-- Street and area address (clean 2 lines maximum) -->
+                        <TextView
+                            android:id="@+id/geo_address"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="2dp"
+                            android:includeFontPadding="false"
+                            android:textColor="#E6FFFFFF"
+                            android:textSize="13.5sp"
+                            android:maxLines="2"
+                            android:lineSpacingExtra="1dp"
+                            android:ellipsize="end"
+                            android:text="@string/address_placeholder"/>
+
+                        <!-- Lat/Long on a single clean line -->
+                        <TextView
+                            android:id="@+id/geo_latlon"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="2dp"
+                            android:includeFontPadding="false"
+                            android:textColor="#E6FFFFFF"
+                            android:textSize="13sp"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:text="Lat --°   Long --°"/>
+
+                        <!-- Date and time on a single clean line -->
+                        <TextView
+                            android:id="@+id/geo_datetime"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="1dp"
+                            android:includeFontPadding="false"
+                            android:textColor="#E6FFFFFF"
+                            android:textSize="13sp"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:text="@string/datetime_format"/>
+
+                        <!-- Azimuth line for Compass Template -->
+                        <TextView
+                            android:id="@+id/liveAzimuthText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="#E6FFFFFF"
+                            android:textSize="12sp"
+                            android:text="Azimuth/Bearing : 207.00°"
+                            android:visibility="gone" />
+
+                        <!-- Altitude and Magnetic Field for Compass Template -->
+                        <TextView
+                            android:id="@+id/liveTelemetryText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="#E6FFFFFF"
+                            android:textSize="12sp"
+                            android:text="⛰️ 15 m       🧲 71.25 µT"
+                            android:visibility="gone" />
+
+                        <!-- Mode & Camera Watermark (shifted right before the border of the bar code starts) -->
+                        <TextView
+                            android:id="@+id/liveModeWatermarkBeforeBarcode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="end"
+                            android:layout_marginTop="3dp"
+                            android:includeFontPadding="false"
+                            android:text="Landscape Mode • Rear Camera"
+                            android:textColor="#B3FFFFFF"
+                            android:textSize="11sp"
+                            android:textStyle="italic"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:visibility="gone"/>
+                    </LinearLayout>
+
+                    <!-- Mini Map for Navigation Compass Template (Enlarged to match Compass Dial) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/liveMiniMapThumbnailCard"
+                        android:layout_width="88dp"
+                        android:layout_height="88dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginEnd="6dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#212121"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/liveMiniMapThumbnail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:contentDescription="Mini Map" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- QR Code / Barcode Card (Pristine 90dp Square with 8dp rounded corners on Right Corner) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/liveQrCodeCard"
+                        android:layout_width="90dp"
+                        android:layout_height="90dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginEnd="6dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/liveQrCode"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:padding="3dp"
+                            android:scaleType="fitCenter"
+                            android:contentDescription="QR Code" />
+                    </com.google.android.material.card.MaterialCardView>
+
                 </LinearLayout>
+
+                <!-- Mode & Camera Watermark: Right bottom corner for other templates -->
+                <TextView
+                    android:id="@+id/liveModeWatermarkCorner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginEnd="4dp"
+                    android:includeFontPadding="false"
+                    android:text="Landscape Mode • Rear Camera"
+                    android:textColor="#E6FFFFFF"
+                    android:textSize="10.5sp"
+                    android:textStyle="italic"
+                    android:visibility="gone"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 
     <ImageButton
-        android:id="@+id/settingsButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:id="@+id/quickOptionsButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:layout_margin="16dp"
-        android:src="@drawable/ic_baseline_settings_24"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/settings"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_quick_options"
+        android:background="@drawable/btn_round_black_border"
+        android:contentDescription="Quick Options"
+        app:tint="@android:color/white"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageButton
+        android:id="@+id/gpsLookupButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="10dp"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_gps_lookup"
+        android:background="@drawable/btn_scanner_gold_circle"
+        android:contentDescription="GPS Photo Scanner"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/quickOptionsButton" />
+
+    <ImageButton
+        android:id="@+id/timelineButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="10dp"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_map_timeline"
+        android:background="@drawable/btn_round_black_border"
+        android:contentDescription="Map Timeline"
+        app:tint="@android:color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/gpsLookupButton" />
+
+    <ImageButton
+        android:id="@+id/settingsButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_margin="16dp"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_baseline_settings_24"
+        android:background="@drawable/btn_round_black_border"
+        android:contentDescription="@string/settings"
+        app:tint="@android:color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/buttonLayout" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

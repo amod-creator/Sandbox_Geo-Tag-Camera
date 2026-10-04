@@ -5,7 +5,7 @@
     <!-- GPS overlay placement helpers -->
     <dimen name="gps_overlay_portrait_margin_bottom">16dp</dimen>
     <dimen name="gps_overlay_landscape_side_margin">24dp</dimen>
-    <dimen name="gps_overlay_landscape_vertical_margin">32dp</dimen>
+    <dimen name="gps_overlay_landscape_vertical_margin">20dp</dimen>
     <!-- New adaptive layout helpers -->
     <dimen name="landscape_map_height">160dp</dimen>
     <dimen name="landscape_text_top_padding">8dp</dimen>

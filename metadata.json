@@ -1,0 +1,6 @@
+{
+  "name": "GPS Cam Visit Pro",
+  "description": "Geotag camera with overlay, custom grids, and visit reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

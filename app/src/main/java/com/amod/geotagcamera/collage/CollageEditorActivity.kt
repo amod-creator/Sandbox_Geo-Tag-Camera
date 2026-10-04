@@ -1,7 +1,9 @@
 package com.amod.geotagcamera.collage
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.*
+import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -10,9 +12,18 @@ import android.view.*
 import android.view.animation.OvershootInterpolator
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.amod.geotagcamera.R
+import com.amod.geotagcamera.StaffInputActivity
+import com.amod.geotagcamera.model.CustomNoteConfig
+import com.amod.geotagcamera.ui.InstagramTextEditorDialog
+import com.amod.geotagcamera.utils.ExifGpsExtractor
+import com.amod.geotagcamera.utils.InstagramTextStyler
 import kotlinx.coroutines.*
+import java.io.File
+import java.io.FileOutputStream
+import java.util.Locale
 
 /**
  * Complete Collage Editor V2 with:
@@ -34,18 +45,33 @@ class CollageEditorActivity : AppCompatActivity() {
     private val undoStack = mutableListOf<CollageState>()
     private val maxUndo = 3
 
+    // ── Text Sticker State ──
+    private var isStickerSelected = false
+    private var currentStickerConfig: CustomNoteConfig? = null
+    private lateinit var scaleGestureDetector: ScaleGestureDetector
+
     // ── Views ──
     private lateinit var preview: ImageView
     private lateinit var dragOverlay: View
     private lateinit var progressBar: ProgressBar
     private lateinit var optionsContainer: LinearLayout
+    private lateinit var cellZoomControlPill: View
+    private lateinit var btnCellZoomOut: ImageButton
+    private lateinit var btnCellZoomIn: ImageButton
+    private lateinit var btnCellZoomReset: ImageButton
+    private lateinit var txtCellZoomPercent: TextView
+
+    // ── Rendering job for smooth live gesture updates ──
+    private var liveRenderJob: Job? = null
 
     // ── Tab views ──
     private lateinit var tabRatio: TextView
     private lateinit var tabLayout: TextView
+    private lateinit var tabRotate: TextView
     private lateinit var tabBorder: TextView
     private lateinit var tabBackground: TextView
-    private var activeTab = 0 // 0=Ratio, 1=Layout, 2=Border, 3=Background
+    private var activeTab = 0 // 0=Ratio, 1=Layout, 2=Rotate, 3=Border, 4=Background
+    private var selectedImageIndex = 0
 
     // ── Drag state ──
     private var isDragging = false
@@ -54,6 +80,19 @@ class CollageEditorActivity : AppCompatActivity() {
     private var longPressStartTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_collage_editor_v2)
 
@@ -61,7 +100,67 @@ class CollageEditorActivity : AppCompatActivity() {
         loadImages()
         setupToolbar()
         setupTabs()
+        
+        // Initialize scale gesture detector for cell zoom and pan
+        scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            private var prevFocusX = 0f
+            private var prevFocusY = 0f
+            private var scaleTargetIndex = -1
+
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                prevFocusX = detector.focusX
+                prevFocusY = detector.focusY
+                val focalIdx = getCellIndex(detector.focusX, detector.focusY)
+                scaleTargetIndex = if (focalIdx in currentState.images.indices) focalIdx else currentState.selectedIndex
+                if (scaleTargetIndex in currentState.images.indices) {
+                    currentState = currentState.copy(selectedIndex = scaleTargetIndex)
+                    selectedImageIndex = scaleTargetIndex
+                    updateZoomPillUi()
+                }
+                return true
+            }
+
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val selectedIdx = scaleTargetIndex
+                if (selectedIdx in currentState.images.indices) {
+                    val currentScales = currentState.scales.toMutableList()
+                    val factor = detector.scaleFactor
+                    // Smooth scaling between 0.25x and 6.0x
+                    val newScale = (currentScales[selectedIdx] * factor).coerceIn(0.25f, 6.0f)
+                    currentScales[selectedIdx] = newScale
+
+                    // Update pan / translate on drag with two fingers
+                    val oxs = currentState.offsetsX.toMutableList()
+                    val oys = currentState.offsetsY.toMutableList()
+                    val pW = preview.width.coerceAtLeast(1)
+                    val pH = preview.height.coerceAtLeast(1)
+
+                    val dx = detector.focusX - prevFocusX
+                    val dy = detector.focusY - prevFocusY
+                    prevFocusX = detector.focusX
+                    prevFocusY = detector.focusY
+
+                    oxs[selectedIdx] = (oxs[selectedIdx] + (dx / pW) * 1.2f).coerceIn(-2.0f, 2.0f)
+                    oys[selectedIdx] = (oys[selectedIdx] + (dy / pH) * 1.2f).coerceIn(-2.0f, 2.0f)
+
+                    currentState = currentState.copy(scales = currentScales, offsetsX = oxs, offsetsY = oys)
+                    updateZoomPillUi()
+                    scheduleQuickPreview()
+                    return true
+                }
+                prevFocusX = detector.focusX
+                prevFocusY = detector.focusY
+                return false
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                scaleTargetIndex = -1
+                refreshPreview()
+            }
+        })
+
         setupDragAndDrop()
+        setupCustomTextSticker()
 
         // Initial render
         showRatioOptions()
@@ -76,8 +175,20 @@ class CollageEditorActivity : AppCompatActivity() {
 
         tabRatio = findViewById(R.id.tabRatio)
         tabLayout = findViewById(R.id.tabLayout)
+        tabRotate = findViewById(R.id.tabRotate)
         tabBorder = findViewById(R.id.tabBorder)
         tabBackground = findViewById(R.id.tabBackground)
+
+        cellZoomControlPill = findViewById(R.id.cellZoomControlPill)
+        btnCellZoomOut = findViewById(R.id.btnCellZoomOut)
+        btnCellZoomIn = findViewById(R.id.btnCellZoomIn)
+        btnCellZoomReset = findViewById(R.id.btnCellZoomReset)
+        txtCellZoomPercent = findViewById(R.id.txtCellZoomPercent)
+
+        btnCellZoomIn.setOnClickListener { zoomSelectedImage(1.15f) }
+        btnCellZoomOut.setOnClickListener { zoomSelectedImage(0.85f) }
+        btnCellZoomReset.setOnClickListener { resetZoomSelectedImage() }
+        txtCellZoomPercent.setOnClickListener { resetZoomSelectedImage() }
     }
 
     private fun loadImages() {
@@ -121,15 +232,19 @@ class CollageEditorActivity : AppCompatActivity() {
 
             currentState = CollageState(images = bitmaps)
             refreshPreview()
-            showLayoutOptions()
+            selectTab(0)
         }
     }
 
     // ── Toolbar ──
     private fun setupToolbar() {
-        findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
+        findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
 
-        findViewById<ImageButton>(R.id.btnUndo).setOnClickListener {
+        findViewById<View>(R.id.btnAddText).setOnClickListener {
+            openStickerTextEditor()
+        }
+
+        findViewById<View>(R.id.btnUndo).setOnClickListener {
             if (undoStack.isNotEmpty()) {
                 currentState = undoStack.removeAt(undoStack.lastIndex)
                 refreshPreview()
@@ -140,7 +255,7 @@ class CollageEditorActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<ImageButton>(R.id.btnSave).setOnClickListener {
+        findViewById<View>(R.id.btnSave).setOnClickListener {
             showProgress(true)
             lifecycleScope.launch(Dispatchers.IO) {
                 CollageExporter.save(this@CollageEditorActivity, currentState) { uri ->
@@ -156,7 +271,7 @@ class CollageEditorActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<ImageButton>(R.id.btnShare).setOnClickListener {
+        findViewById<View>(R.id.btnShare).setOnClickListener {
             showProgress(true)
             lifecycleScope.launch(Dispatchers.IO) {
                 CollageExporter.share(this@CollageEditorActivity, currentState) { success ->
@@ -165,15 +280,84 @@ class CollageEditorActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<ImageButton>(R.id.btnReport).setOnClickListener {
+        findViewById<View>(R.id.btnReport).setOnClickListener {
             showProgress(true)
             lifecycleScope.launch(Dispatchers.IO) {
-                CollageExporter.generateReport(this@CollageEditorActivity, currentState) { uri ->
-                    runOnUiThread {
-                        showProgress(false)
-                        if (uri != null) {
-                            Toast.makeText(this@CollageEditorActivity, "Report generated", Toast.LENGTH_SHORT).show()
+                try {
+                    val bitmap = CollageExporter.render(this@CollageEditorActivity, currentState)
+                    if (bitmap == null) {
+                        withContext(Dispatchers.Main) {
+                            showProgress(false)
+                            Toast.makeText(this@CollageEditorActivity, "Failed to render collage", Toast.LENGTH_SHORT).show()
                         }
+                        return@launch
+                    }
+
+                    // Save to temporary file in cache for StaffInputActivity
+                    val tempFile = File(cacheDir, "collage_for_report_${System.currentTimeMillis()}.jpg")
+                    FileOutputStream(tempFile).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    }
+
+                    // Extract GPS from the original photos if available
+                    val uris = intent.getParcelableArrayListExtra<Uri>("PHOTO_URIS") ?: emptyList()
+                    var gpsAddress = ""
+                    var firstCoords: Pair<Double, Double>? = null
+                    for (uri in uris) {
+                        val coords = ExifGpsExtractor.extractGps(this@CollageEditorActivity, uri)
+                        if (coords != null) {
+                            firstCoords = coords
+                            try {
+                                val geocoder = Geocoder(this@CollageEditorActivity, Locale.getDefault())
+                                @Suppress("DEPRECATION")
+                                val addrs = geocoder.getFromLocation(coords.first, coords.second, 1)
+                                if (!addrs.isNullOrEmpty()) {
+                                    gpsAddress = addrs[0].getAddressLine(0) ?: "Lat ${coords.first}, Long ${coords.second}"
+                                } else {
+                                    gpsAddress = "Lat ${coords.first}, Long ${coords.second}"
+                                }
+                            } catch (_: Exception) {
+                                gpsAddress = "Lat ${coords.first}, Long ${coords.second}"
+                            }
+                            if (gpsAddress.isNotBlank()) break
+                        }
+                    }
+
+                    // Embed GPS info in the EXIF of the temp collage file
+                    if (firstCoords != null) {
+                        try {
+                            val exif = androidx.exifinterface.media.ExifInterface(tempFile.absolutePath)
+                            fun formatCoord(coord: Double): String {
+                                val deg = Math.abs(coord).toInt()
+                                val min = ((Math.abs(coord) - deg) * 60).toInt()
+                                val sec = (Math.abs(coord) - deg - min / 60.0) * 3600.0
+                                return "$deg/1,$min/1,${(sec * 1000).toInt()}/1000"
+                            }
+                            exif.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_GPS_LATITUDE, formatCoord(firstCoords.first))
+                            exif.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_GPS_LATITUDE_REF, if (firstCoords.first >= 0) "N" else "S")
+                            exif.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_GPS_LONGITUDE, formatCoord(firstCoords.second))
+                            exif.setAttribute(androidx.exifinterface.media.ExifInterface.TAG_GPS_LONGITUDE_REF, if (firstCoords.second >= 0) "E" else "W")
+                            exif.saveAttributes()
+                        } catch (_: Exception) { }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        showProgress(false)
+                        val staffIntent = Intent(this@CollageEditorActivity, StaffInputActivity::class.java).apply {
+                            putExtra("COLLAGE_IMAGE_PATH", tempFile.absolutePath)
+                            putExtra("IS_COLLAGE_REPORT", true)
+                            if (gpsAddress.isNotBlank()) {
+                                putExtra("COLLAGE_GPS_ADDRESS", gpsAddress)
+                                putStringArrayListExtra("PHOTO_GPS", arrayListOf(gpsAddress))
+                            }
+                        }
+                        startActivity(staffIntent)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error launching StaffInputActivity with collage: ${e.message}", e)
+                    withContext(Dispatchers.Main) {
+                        showProgress(false)
+                        Toast.makeText(this@CollageEditorActivity, "Error preparing report: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -184,13 +368,14 @@ class CollageEditorActivity : AppCompatActivity() {
     private fun setupTabs() {
         tabRatio.setOnClickListener { selectTab(0) }
         tabLayout.setOnClickListener { selectTab(1) }
-        tabBorder.setOnClickListener { selectTab(2) }
-        tabBackground.setOnClickListener { selectTab(3) }
+        tabRotate.setOnClickListener { selectTab(2) }
+        tabBorder.setOnClickListener { selectTab(3) }
+        tabBackground.setOnClickListener { selectTab(4) }
     }
 
     private fun selectTab(index: Int) {
         activeTab = index
-        val tabs = listOf(tabRatio, tabLayout, tabBorder, tabBackground)
+        val tabs = listOf(tabRatio, tabLayout, tabRotate, tabBorder, tabBackground)
         tabs.forEachIndexed { i, tv ->
             if (i == index) {
                 tv.setTextColor(0xFFFFC107.toInt())
@@ -207,8 +392,167 @@ class CollageEditorActivity : AppCompatActivity() {
         when (activeTab) {
             0 -> showRatioOptions()
             1 -> showLayoutOptions()
-            2 -> showBorderOptions()
-            3 -> showBackgroundOptions()
+            2 -> showRotateOptions()
+            3 -> showBorderOptions()
+            4 -> showBackgroundOptions()
+        }
+    }
+
+    // ── Rotate & Zoom Options ──
+    private fun showRotateOptions() {
+        optionsContainer.removeAllViews()
+
+        if (currentState.images.isEmpty()) {
+            val emptyTv = TextView(this).apply {
+                text = "No images to rotate"
+                setTextColor(0xFF888888.toInt())
+                setPadding(16, 16, 16, 16)
+            }
+            optionsContainer.addView(emptyTv)
+            return
+        }
+
+        if (selectedImageIndex !in currentState.images.indices) {
+            selectedImageIndex = 0
+        }
+
+        // 1. Quick action button: "Rotate 90° ↻" for selected image
+        val rotateRightBtn = createActionButton("Rotate 90° ↻", 0xFFFFC107.toInt()) {
+            rotateImage(selectedImageIndex, 90f)
+        }
+        optionsContainer.addView(rotateRightBtn)
+
+        // 2. Quick action button: "Rotate -90° ↺"
+        val rotateLeftBtn = createActionButton("Rotate -90° ↺", 0xFFFFFFFF.toInt()) {
+            rotateImage(selectedImageIndex, -90f)
+        }
+        optionsContainer.addView(rotateLeftBtn)
+
+        // 3. Quick action button: "Rotate 180°"
+        val rotate180Btn = createActionButton("Rotate 180°", 0xFFFFB74D.toInt()) {
+            rotateImage(selectedImageIndex, 180f)
+        }
+        optionsContainer.addView(rotate180Btn)
+
+        // 4. Quick action button: "Rotate All ↻"
+        val rotateAllBtn = createActionButton("Rotate All ↻", 0xFF64B5F6.toInt()) {
+            rotateAllImages(90f)
+        }
+        optionsContainer.addView(rotateAllBtn)
+
+        // 5. Quick action button: "Zoom In ➕"
+        val zoomInBtn = createActionButton("Zoom In ➕", 0xFF81C784.toInt()) {
+            zoomSelectedImage(1.15f)
+        }
+        optionsContainer.addView(zoomInBtn)
+
+        // 6. Quick action button: "Zoom Out ➖"
+        val zoomOutBtn = createActionButton("Zoom Out ➖", 0xFFE57373.toInt()) {
+            zoomSelectedImage(0.85f)
+        }
+        optionsContainer.addView(zoomOutBtn)
+
+        // 7. Quick action button: "Reset Zoom ↺"
+        val resetZoomBtn = createActionButton("Reset Zoom ↺", 0xFF64B5F6.toInt()) {
+            resetZoomSelectedImage()
+        }
+        optionsContainer.addView(resetZoomBtn)
+    }
+
+    private fun zoomSelectedImage(factor: Float) {
+        val selectedIdx = currentState.selectedIndex
+        if (selectedIdx in currentState.images.indices) {
+            pushUndo()
+            val currentScales = currentState.scales.toMutableList()
+            val newScale = (currentScales[selectedIdx] * factor).coerceIn(0.25f, 6.0f)
+            currentScales[selectedIdx] = newScale
+            currentState = currentState.copy(scales = currentScales)
+            updateZoomPillUi()
+            refreshPreview()
+            Toast.makeText(this, "Zoom: ${(newScale * 100).toInt()}%", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Tap a photo in the collage to select and zoom it", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun resetZoomSelectedImage() {
+        val selectedIdx = currentState.selectedIndex
+        if (selectedIdx in currentState.images.indices) {
+            pushUndo()
+            val currentScales = currentState.scales.toMutableList()
+            val oxs = currentState.offsetsX.toMutableList()
+            val oys = currentState.offsetsY.toMutableList()
+            currentScales[selectedIdx] = 1.0f
+            oxs[selectedIdx] = 0f
+            oys[selectedIdx] = 0f
+            currentState = currentState.copy(scales = currentScales, offsetsX = oxs, offsetsY = oys)
+            updateZoomPillUi()
+            refreshPreview()
+            Toast.makeText(this, "Zoom reset to 100%", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateZoomPillUi() {
+        if (!::txtCellZoomPercent.isInitialized) return
+        val selectedIdx = currentState.selectedIndex
+        if (selectedIdx in currentState.scales.indices) {
+            val scale = currentState.scales[selectedIdx]
+            txtCellZoomPercent.text = "${(scale * 100).toInt()}%"
+        } else {
+            txtCellZoomPercent.text = "100%"
+        }
+    }
+
+    private fun rotateImage(index: Int, degrees: Float) {
+        if (index !in currentState.images.indices) return
+        val original = currentState.images[index] ?: return
+        pushUndo()
+        val matrix = Matrix().apply { postRotate(degrees) }
+        val rotated = Bitmap.createBitmap(original, 0, 0, original.width, original.height, matrix, true)
+        val newImages = currentState.images.toMutableList()
+        newImages[index] = rotated
+        currentState = currentState.copy(images = newImages)
+        refreshPreview()
+        showRotateOptions()
+        Toast.makeText(this, "Photo ${index + 1} rotated ${degrees.toInt()}°", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun rotateAllImages(degrees: Float) {
+        if (currentState.images.isEmpty()) return
+        pushUndo()
+        val matrix = Matrix().apply { postRotate(degrees) }
+        val newImages = currentState.images.map { bmp ->
+            bmp?.let { Bitmap.createBitmap(it, 0, 0, it.width, it.height, matrix, true) }
+        }
+        currentState = currentState.copy(images = newImages)
+        refreshPreview()
+        showRotateOptions()
+        Toast.makeText(this, "All photos rotated ${degrees.toInt()}°", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun createActionButton(label: String, color: Int, onClick: () -> Unit): View {
+        val density = resources.displayMetrics.density
+        return TextView(this).apply {
+            text = label
+            setTextColor(color)
+            textSize = 12f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding((14 * density).toInt(), (10 * density).toInt(), (14 * density).toInt(), (10 * density).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0x33333333)
+                cornerRadius = 16 * density
+                setStroke((1.5f * density).toInt(), color)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = (8 * density).toInt()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
         }
     }
 
@@ -253,41 +597,95 @@ class CollageEditorActivity : AppCompatActivity() {
 
 
 
-    // ── Drag and Drop ──
+    // ── Drag and Drop, Zoom, Pan ──
     @SuppressLint("ClickableViewAccessibility")
     private fun setupDragAndDrop() {
+        var lastTouchX = 0f
+        var lastTouchY = 0f
+        var downTouchX = 0f
+        var downTouchY = 0f
+        var isPanning = false
+
         dragOverlay.setOnTouchListener { v, event ->
-            when (event.action) {
+            scaleGestureDetector.onTouchEvent(event)
+
+            if (event.pointerCount >= 2) {
+                isDragging = false
+                isPanning = false
+                return@setOnTouchListener true
+            }
+
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     longPressStartTime = System.currentTimeMillis()
                     dragSourceIndex = getCellIndex(event.x, event.y)
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+                    downTouchX = event.x
+                    downTouchY = event.y
                     isDragging = false
+                    isPanning = false
+                    if (dragSourceIndex in currentState.images.indices) {
+                        selectedImageIndex = dragSourceIndex
+                        currentState = currentState.copy(selectedIndex = dragSourceIndex)
+                        updateZoomPillUi()
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!isDragging && System.currentTimeMillis() - longPressStartTime > 400) {
-                        // Long press triggered — start drag
+                    val dx = event.x - lastTouchX
+                    val dy = event.y - lastTouchY
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+
+                    val dist = Math.hypot((event.x - downTouchX).toDouble(), (event.y - downTouchY).toDouble()).toFloat()
+
+                    // If user moved finger noticeably, cancel swap mode and immediately pan the photo
+                    if (!isDragging && !isPanning && dist > 14f) {
+                        isPanning = true
+                    }
+
+                    // Only trigger swap mode if user holds finger still without dragging for > 600ms
+                    if (!isDragging && !isPanning && System.currentTimeMillis() - longPressStartTime > 600) {
                         isDragging = true
                         v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                        // Scale up preview slightly
                         preview.animate().scaleX(1.02f).scaleY(1.02f).setDuration(100).start()
                     }
+
                     if (isDragging) {
                         dragTargetIndex = getCellIndex(event.x, event.y)
-                        // Highlight target cell with blue overlay
                         refreshPreviewWithHighlight(dragTargetIndex)
+                    } else if (isPanning || dist > 8f) {
+                        // Smoothly pan/drag photo within cell
+                        val selectedIdx = currentState.selectedIndex
+                        if (selectedIdx in currentState.images.indices) {
+                            val oxs = currentState.offsetsX.toMutableList()
+                            val oys = currentState.offsetsY.toMutableList()
+                            val pW = preview.width.coerceAtLeast(1)
+                            val pH = preview.height.coerceAtLeast(1)
+                            oxs[selectedIdx] = (oxs[selectedIdx] + (dx / pW) * 1.3f).coerceIn(-2.0f, 2.0f)
+                            oys[selectedIdx] = (oys[selectedIdx] + (dy / pH) * 1.3f).coerceIn(-2.0f, 2.0f)
+                            currentState = currentState.copy(offsetsX = oxs, offsetsY = oys)
+                            scheduleQuickPreview()
+                        }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (isDragging && dragSourceIndex >= 0 && dragTargetIndex >= 0 && dragSourceIndex != dragTargetIndex) {
-                        // Swap images
                         swapImages(dragSourceIndex, dragTargetIndex)
+                    } else if (!isDragging && dragSourceIndex >= 0) {
+                        selectedImageIndex = dragSourceIndex
+                        currentState = currentState.copy(selectedIndex = dragSourceIndex)
+                        updateZoomPillUi()
+                        if (System.currentTimeMillis() - longPressStartTime < 400 && !isPanning) {
+                            showRotateOptions()
+                        }
                     }
                     isDragging = false
+                    isPanning = false
                     dragSourceIndex = -1
                     dragTargetIndex = -1
-                    // Reset scale with bounce animation
                     preview.animate()
                         .scaleX(1f).scaleY(1f)
                         .setInterpolator(OvershootInterpolator(2f))
@@ -342,11 +740,26 @@ class CollageEditorActivity : AppCompatActivity() {
         currentState = currentState.copy(images = newImages)
     }
 
-    // ── Preview rendering ──
+    // ── Live fast preview rendering for 60 FPS gesture updates without queue lag ──
+    private fun scheduleQuickPreview() {
+        liveRenderJob?.cancel()
+        liveRenderJob = lifecycleScope.launch {
+            val bmp = withContext(Dispatchers.Default) {
+                CollageExporter.renderPreview(this@CollageEditorActivity, currentState, previewSize = 650)
+            }
+            if (isActive && bmp != null) {
+                preview.setImageBitmap(bmp)
+            }
+        }
+    }
+
+    // ── Full resolution preview rendering ──
     private fun refreshPreview() {
+        liveRenderJob?.cancel()
+        updateZoomPillUi()
         lifecycleScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                CollageExporter.renderPreview(currentState)
+                CollageExporter.renderPreview(this@CollageEditorActivity, currentState, previewSize = 850)
             }
             bmp?.let { preview.setImageBitmap(it) }
         }
@@ -355,13 +768,13 @@ class CollageEditorActivity : AppCompatActivity() {
     private fun refreshPreviewWithHighlight(targetIdx: Int) {
         lifecycleScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                val rendered = CollageExporter.renderPreview(currentState) ?: return@withContext null
+                val rendered = CollageExporter.renderPreview(this@CollageEditorActivity, currentState) ?: return@withContext null
                 if (targetIdx < 0) return@withContext rendered
 
                 // Draw blue highlight on target cell
                 val canvas = Canvas(rendered)
                 val imageCount = currentState.images.size.coerceIn(2, 6)
-        val template = CollageLayoutEngine.getTemplate(imageCount, currentState.ratio, currentState.layoutIndex)
+                val template = CollageLayoutEngine.getTemplate(imageCount, currentState.ratio, currentState.layoutIndex)
                 if (targetIdx < template.cells.size) {
                     val cell = template.cells[targetIdx]
                     val rect = cell.toRectF(rendered.width.toFloat(), rendered.height.toFloat())
@@ -649,5 +1062,228 @@ class CollageEditorActivity : AppCompatActivity() {
         canvas.drawLine(margin, size / 2f, size - margin, size / 2f, iconPaint)
 
         return bmp
+    }
+
+    private fun setStickerSelected(selected: Boolean) {
+        isStickerSelected = selected
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val btnDelete = findViewById<View>(R.id.btnStickerDelete) ?: return
+        val btnMirror = findViewById<View>(R.id.btnStickerMirror) ?: return
+        val btnEdit = findViewById<View>(R.id.btnStickerEdit) ?: return
+        val btnResize = findViewById<View>(R.id.btnStickerResize) ?: return
+
+        if (selected) {
+            contentBox.setBackgroundResource(R.drawable.sticker_border_selected)
+            btnDelete.visibility = View.VISIBLE
+            btnMirror.visibility = View.VISIBLE
+            btnEdit.visibility = View.VISIBLE
+            btnResize.visibility = View.VISIBLE
+        } else {
+            contentBox.background = null
+            btnDelete.visibility = View.GONE
+            btnMirror.visibility = View.GONE
+            btnEdit.visibility = View.GONE
+            btnResize.visibility = View.GONE
+        }
+    }
+
+    private fun openStickerTextEditor() {
+        val currentConfig = currentStickerConfig ?: CustomNoteConfig(text = "")
+        val textEditorDialog = InstagramTextEditorDialog(this, currentConfig, false) { savedConfig ->
+            updateLiveCustomNoteView(savedConfig)
+        }
+        textEditorDialog.show()
+    }
+
+    private fun updateLiveCustomNoteView(config: CustomNoteConfig) {
+        currentStickerConfig = config
+        val container = findViewById<View>(R.id.liveCustomNoteContainer) ?: return
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val textView = findViewById<TextView>(R.id.liveCustomNoteText) ?: return
+
+        if (config.text.isBlank()) {
+            container.visibility = View.GONE
+            setStickerSelected(false)
+            currentState = currentState.copy(stickerConfig = null)
+            refreshPreview()
+            return
+        }
+
+        container.visibility = View.VISIBLE
+        textView.text = config.text
+        InstagramTextStyler.applyStyleToView(textView, config)
+        container.rotation = config.rotation
+        contentBox.scaleX = if (config.isMirrored) -1f else 1f
+        setStickerSelected(true)
+
+        // Save sticker configuration to CollageState so it gets drawn on the exported bitmap
+        currentState = currentState.copy(stickerConfig = config)
+        refreshPreview()
+    }
+
+    private fun setupCustomTextSticker() {
+        val container = findViewById<View>(R.id.liveCustomNoteContainer) ?: return
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val textView = findViewById<TextView>(R.id.liveCustomNoteText) ?: return
+        val btnDelete = findViewById<View>(R.id.btnStickerDelete) ?: return
+        val btnMirror = findViewById<View>(R.id.btnStickerMirror) ?: return
+        val btnEdit = findViewById<View>(R.id.btnStickerEdit) ?: return
+        val btnResize = findViewById<View>(R.id.btnStickerResize) ?: return
+
+        setStickerSelected(false)
+
+        // 1. Drag & Tap on Content Box
+        var startRawX = 0f
+        var startRawY = 0f
+        var startTransX = 0f
+        var startTransY = 0f
+        var isDraggingSticker = false
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+
+        contentBox.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    startTransX = container.translationX
+                    startTransY = container.translationY
+                    isDraggingSticker = false
+                    setStickerSelected(true)
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - startRawX
+                    val dy = event.rawY - startRawY
+                    val dist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    if (dist > touchSlop) {
+                        isDraggingSticker = true
+                    }
+                    if (isDraggingSticker) {
+                        container.translationX = startTransX + dx
+                        container.translationY = startTransY + dy
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (!isDraggingSticker) {
+                        setStickerSelected(true)
+                    } else {
+                        val parent = container.parent as? View
+                        if (parent != null && parent.width > 0 && parent.height > 0) {
+                            val stickerCenterX = container.x + container.width / 2f
+                            val stickerCenterY = container.y + container.height / 2f
+                            val normX = stickerCenterX / parent.width
+                            val normY = stickerCenterY / parent.height
+
+                            val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+                            cfg.isCustomPositioned = true
+                            cfg.normPosX = normX
+                            cfg.normPosY = normY
+                            currentStickerConfig = cfg
+                            currentState = currentState.copy(stickerConfig = cfg)
+                            refreshPreview()
+                        }
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // 2. Top-Left: Delete button (Trash can)
+        btnDelete.setOnClickListener {
+            val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+            cfg.text = ""
+            cfg.isMirrored = false
+            currentStickerConfig = cfg
+            setStickerSelected(false)
+            container.visibility = View.GONE
+            currentState = currentState.copy(stickerConfig = null)
+            refreshPreview()
+            Toast.makeText(this, "Text deleted", Toast.LENGTH_SHORT).show()
+        }
+
+        // 3. Top-Right: Mirror/Flip button
+        btnMirror.setOnClickListener {
+            val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+            cfg.isMirrored = !cfg.isMirrored
+            contentBox.scaleX = if (cfg.isMirrored) -1f else 1f
+            currentStickerConfig = cfg
+            currentState = currentState.copy(stickerConfig = cfg)
+            refreshPreview()
+            val status = if (cfg.isMirrored) "Mirrored" else "Normal"
+            Toast.makeText(this, "Text $status", Toast.LENGTH_SHORT).show()
+        }
+
+        // 4. Bottom-Left: Edit button (Pencil)
+        btnEdit.setOnClickListener {
+            openStickerTextEditor()
+        }
+
+        // 5. Bottom-Right: Resize & Rotate button
+        var startDist = 0f
+        var startAngle = 0.0
+        var startSize = 20f
+        var startRot = 0f
+
+        btnResize.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    val parentView = container.parent as? View
+                    val parentLoc = IntArray(2)
+                    parentView?.getLocationOnScreen(parentLoc)
+                    val stickerCenterX = parentLoc[0] + container.x + container.pivotX
+                    val stickerCenterY = parentLoc[1] + container.y + container.pivotY
+
+                    val dx = event.rawX - stickerCenterX
+                    val dy = event.rawY - stickerCenterY
+                    startDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    startAngle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
+                    val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+                    startSize = cfg.textSizeSp
+                    startRot = container.rotation
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val parentView = container.parent as? View
+                    val parentLoc = IntArray(2)
+                    parentView?.getLocationOnScreen(parentLoc)
+                    val stickerCenterX = parentLoc[0] + container.x + container.pivotX
+                    val stickerCenterY = parentLoc[1] + container.y + container.pivotY
+
+                    val dx = event.rawX - stickerCenterX
+                    val dy = event.rawY - stickerCenterY
+                    val currentDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    if (startDist > 10f) {
+                        val scale = currentDist / startDist
+                        val newSize = (startSize * scale).coerceIn(12f, 72f)
+                        textView.textSize = newSize
+                        val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+                        cfg.textSizeSp = newSize
+                    }
+
+                    val currentAngle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
+                    val deltaAngle = (currentAngle - startAngle).toFloat()
+                    var newRot = (startRot + deltaAngle) % 360f
+                    if (newRot < 0f) newRot += 360f
+
+                    if (newRot < 4f || newRot > 356f) newRot = 0f
+                    else if (Math.abs(newRot - 90f) < 4f) newRot = 90f
+                    else if (Math.abs(newRot - 180f) < 4f) newRot = 180f
+                    else if (Math.abs(newRot - 270f) < 4f) newRot = 270f
+
+                    container.rotation = newRot
+                    val cfg = currentStickerConfig ?: CustomNoteConfig(text = "")
+                    cfg.rotation = newRot
+                    currentState = currentState.copy(stickerConfig = cfg)
+                    refreshPreview()
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    true
+                }
+                else -> false
+            }
+        }
     }
 }

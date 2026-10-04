@@ -14,6 +14,8 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import android.os.Build
 import androidx.lifecycle.lifecycleScope
 import com.amod.geotagcamera.databinding.ActivitySignatureEditorBinding
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +39,19 @@ class SignatureEditorActivity : AppCompatActivity() {
     private var processedBitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
         binding = ActivitySignatureEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)

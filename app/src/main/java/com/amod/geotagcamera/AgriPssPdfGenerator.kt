@@ -83,7 +83,7 @@ class AgriPssPdfGenerator(private val context: Context) {
         isAntiAlias = true
     }
 
-    fun generate(input: Input, outputFile: File) {
+    fun generate(input: Input, outputFile: File, collageBitmap: Bitmap? = null, photos: List<Bitmap> = emptyList()) {
         val pdf = PdfDocument()
         var pageNum = 1
         var page = pdf.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, pageNum).create())
@@ -292,6 +292,75 @@ o Any discrepancies or inconsistencies identified during the verification proces
 
         // Finish last page
         pdf.finishPage(page)
+
+        if (collageBitmap != null) {
+            pageNum += 1
+            val collagePage = pdf.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, pageNum).create())
+            val collageCanvas = collagePage.canvas
+            val headerBottom = drawHeader(collageCanvas, pageNum)
+
+            val titlePaintCenter = Paint(boldPaint).apply {
+                textSize = 13f
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            collageCanvas.drawText("COLLAGE REPORT - SITE PHOTOGRAPHS", pageW / 2f, headerBottom + 18f, titlePaintCenter)
+
+            val maxImgW = pageW - margin * 2
+            val maxImgH = bottomLimit - (headerBottom + 36f)
+            val scale = minOf(maxImgW / collageBitmap.width.toFloat(), maxImgH / collageBitmap.height.toFloat())
+            val drawW = collageBitmap.width * scale
+            val drawH = collageBitmap.height * scale
+            val drawX = margin + (maxImgW - drawW) / 2f
+            val drawY = headerBottom + 36f + (maxImgH - drawH) / 2f
+
+            val rect = RectF(drawX, drawY, drawX + drawW, drawY + drawH)
+            val imgPaint = Paint().apply { isAntiAlias = true; isFilterBitmap = true }
+            collageCanvas.drawBitmap(collageBitmap, null, rect, imgPaint)
+            collageCanvas.drawRect(rect, borderPaint)
+
+            pdf.finishPage(collagePage)
+        } else if (photos.isNotEmpty()) {
+            val imgPaint = Paint().apply { isAntiAlias = true; isFilterBitmap = true }
+            var photoIter = photos.iterator()
+            var pCount = 1
+            while (photoIter.hasNext()) {
+                pageNum += 1
+                val photoPage = pdf.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, pageNum).create())
+                val pCanvas = photoPage.canvas
+                var curY = drawHeader(pCanvas, pageNum)
+
+                val titlePaintCenter = Paint(boldPaint).apply {
+                    textSize = 13f
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                }
+                pCanvas.drawText("SITE PHOTOGRAPHS", pageW / 2f, curY + 18f, titlePaintCenter)
+                curY += 32f
+                val photoAreaH = bottomLimit - curY
+                val singlePhotoAreaH = (photoAreaH - 30f) / 2f
+                for (i in 0..1) {
+                    if (photoIter.hasNext()) {
+                        val bmp = photoIter.next()
+                        val scaledBmp = if (bmp.width > 1200 || bmp.height > 1200) {
+                            val ratio = minOf(1200f / bmp.width, 1200f / bmp.height)
+                            Bitmap.createScaledBitmap(bmp, (bmp.width * ratio).toInt(), (bmp.height * ratio).toInt(), true)
+                        } else bmp
+                        val maxImgW = pageW - margin * 2
+                        val scale = minOf(maxImgW / scaledBmp.width.toFloat(), singlePhotoAreaH / scaledBmp.height.toFloat())
+                        val drawW = scaledBmp.width * scale
+                        val drawH = scaledBmp.height * scale
+                        val drawX = margin + (maxImgW - drawW) / 2f
+                        pCanvas.drawText("Photograph ${pCount++}", margin, curY - 5f, boldPaint)
+                        val rect = RectF(drawX, curY, drawX + drawW, curY + drawH)
+                        pCanvas.drawBitmap(scaledBmp, null, rect, imgPaint)
+                        pCanvas.drawRect(rect, borderPaint)
+                        curY += drawH + 35f
+                    }
+                }
+                pdf.finishPage(photoPage)
+            }
+        }
 
         try {
             FileOutputStream(outputFile).use { out -> pdf.writeTo(out) }

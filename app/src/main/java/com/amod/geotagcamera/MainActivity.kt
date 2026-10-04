@@ -22,6 +22,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.View
@@ -31,12 +32,13 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.*
-import android.widget.VideoView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import android.hardware.camera2.CameraCharacteristics
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import android.util.Size
@@ -45,9 +47,21 @@ import androidx.media3.common.util.UnstableApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.lifecycleScope
+import com.amod.geotagcamera.model.AppLanguage
+import com.amod.geotagcamera.model.CustomNoteConfig
+import com.amod.geotagcamera.model.MapType
+import com.amod.geotagcamera.model.NotePosition
+import com.amod.geotagcamera.model.OverlayTemplate
+import com.amod.geotagcamera.ui.InstagramTextEditorDialog
+import com.amod.geotagcamera.utils.CompassRenderer
 import com.amod.geotagcamera.utils.GpsOverlayRenderer
+import com.amod.geotagcamera.utils.InstagramTextStyler
+import com.amod.geotagcamera.utils.QrCodeGenerator
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.material.card.MaterialCardView
@@ -70,11 +84,40 @@ class MainActivity : AppCompatActivity() {
     private lateinit var videoCapture: androidx.camera.video.VideoCapture<androidx.camera.video.Recorder>
     private var recording: androidx.camera.video.Recording? = null
     private var isRecording = false
+    private var isVideoSupported = false
+    private fun playShutterSound() {
+        if (!cameraSoundSetting) return
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+            audioManager?.playSoundEffect(android.media.AudioManager.FX_KEY_CLICK, 1.0f)
+                ?: window?.decorView?.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+        } catch (_: Throwable) {
+            try {
+                window?.decorView?.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun playTimerBeep() {
+        if (!cameraSoundSetting) return
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+            audioManager?.playSoundEffect(android.media.AudioManager.FX_KEY_CLICK, 0.7f)
+                ?: window?.decorView?.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+        } catch (_: Throwable) {
+            try {
+                window?.decorView?.playSoundEffect(android.view.SoundEffectConstants.CLICK)
+            } catch (_: Throwable) {}
+        }
+    }
     
     companion object {
         private var isIntroShown = false
-        private var currentLocation: Location? = null
-        private var address: String = ""
+        private var currentLocation: Location? = Location("GPS").apply {
+            latitude = 37.421998
+            longitude = -122.084000
+        }
+        private var address: String = "Googleplex, Mountain View, CA 94043, United States"
         private var lastSavedImageUri: Uri? = null
         private var offlinePromptShown = false
     }
@@ -100,12 +143,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var gpsOverlayRenderer: GpsOverlayRenderer
     private var lastOverlayMapThumbnail: Bitmap? = null
+    private var isUsingFallbackThumbnail: Boolean = false
+    private var mapFetchJob: kotlinx.coroutines.Job? = null
     private var lastOverlayLatText: String = ""
     private var lastOverlayLonText: String = ""
     private var lastOverlayAddrText: String = ""
     private var lastOverlayDateTime: String = ""
     private var lastMapLat: Double = 0.0
     private var lastMapLon: Double = 0.0
+    private var lastFetchedMapType: MapType? = null
     private lateinit var displayManager: DisplayManager
     private var displayRotation = Surface.ROTATION_0
     private val httpClient = OkHttpClient.Builder()
@@ -118,6 +164,74 @@ class MainActivity : AppCompatActivity() {
     private var cameraInfo: androidx.camera.core.CameraInfo? = null
     private var currentZoomRatio = 1.0f
 
+    // Dynamic Camera Options
+    private var cameraRatioSetting = "4:3"
+    private var cameraGridSetting = "OFF"
+    private var cameraTimerSetting = 0
+    private var cameraFocusSetting = "AUTO"
+    private var cameraMirrorSetting = false
+    private var cameraSoundSetting = true
+    private var cameraWbSetting = "AUTO"
+    private var cameraLevelSetting = false
+    private var cameraTextSetting = ""
+    private var cameraVoiceSetting = true
+    private var cameraFlashSetting = "Auto" // "Auto", "On", "Off"
+    private var cameraStampSetting = true  // Front or Rear camera stamp on overlay
+    private var cameraTelemetrySetting = true
+    private var cameraTimeFormatSetting = "12H"
+
+    // Sensor Manager for leveling bubble and compass
+    private var sensorManager: android.hardware.SensorManager? = null
+    private var accelerometer: android.hardware.Sensor? = null
+    private var magnetometer: android.hardware.Sensor? = null
+    private val lastAccelerometerValues = FloatArray(3)
+    private val lastMagnetometerValues = FloatArray(3)
+    private var isAccelerometerSet = false
+    private var isMagnetometerSet = false
+    private var currentDeviceAzimuth = 207.0f
+    private var currentDeviceMagneticField = 71.25f
+
+    private val sensorListener = object : android.hardware.SensorEventListener {
+        override fun onSensorChanged(event: android.hardware.SensorEvent) {
+            if (event.sensor.type == android.hardware.Sensor.TYPE_ACCELEROMETER) {
+                val ax = event.values[0]
+                val ay = event.values[1]
+                val az = event.values[2]
+                System.arraycopy(event.values, 0, lastAccelerometerValues, 0, 3)
+                isAccelerometerSet = true
+                val roll = Math.toDegrees(Math.atan2(-ax.toDouble(), ay.toDouble())).toFloat()
+                findViewById<com.amod.geotagcamera.ui.CameraGridView>(R.id.cameraGridView)?.updateRoll(roll)
+            } else if (event.sensor.type == android.hardware.Sensor.TYPE_MAGNETIC_FIELD) {
+                System.arraycopy(event.values, 0, lastMagnetometerValues, 0, 3)
+                isMagnetometerSet = true
+                val mx = event.values[0]
+                val my = event.values[1]
+                val mz = event.values[2]
+                currentDeviceMagneticField = Math.sqrt((mx * mx + my * my + mz * mz).toDouble()).toFloat()
+            }
+
+            if (isAccelerometerSet && isMagnetometerSet) {
+                val rotationMatrix = FloatArray(9)
+                val inclinationMatrix = FloatArray(9)
+                if (android.hardware.SensorManager.getRotationMatrix(rotationMatrix, inclinationMatrix, lastAccelerometerValues, lastMagnetometerValues)) {
+                    val orientation = FloatArray(3)
+                    android.hardware.SensorManager.getOrientation(rotationMatrix, orientation)
+                    val azimuthInRadians = orientation[0]
+                    var azimuthInDegrees = Math.toDegrees(azimuthInRadians.toDouble()).toFloat()
+                    if (azimuthInDegrees < 0) azimuthInDegrees += 360f
+                    currentDeviceAzimuth = azimuthInDegrees
+                    gpsOverlayRenderer.currentAzimuth = currentDeviceAzimuth
+                    gpsOverlayRenderer.currentMagneticField = currentDeviceMagneticField
+                }
+            }
+        }
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+    }
+
+    // Countdown / Timer tracker
+    private var countDownTimer: android.os.CountDownTimer? = null
+    private var isTimerCountingDown = false
+
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
@@ -127,37 +241,57 @@ class MainActivity : AppCompatActivity() {
                 displayRotation = newRotation
                 Log.d("DisplayListener", "Rotation changed to $displayRotation")
                 adjustGpsOverlayPosition(displayRotation)
+                updateWatermarkModeText()
             }
         }
     }
 
     /**
-     * Hide system UI (status bar, navigation bar) for an immersive experience.
+     * Keep system navigation buttons visible at all times with a 100% transparent background (Edge-to-Edge).
      */
-    private fun hideSystemUI() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.let { controller ->
-                controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    fun setupTransparentSystemUI() {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
             }
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            or View.SYSTEM_UI_FLAG_FULLSCREEN
-                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    )
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error in setupTransparentSystemUI: ${e.message}")
         }
     }
 
-
+    fun hideSystemUI() {
+        setupTransparentSystemUI()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         // Load initial visitMode from SharedPreferences
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
         visitMode = sharedPrefs.getBoolean("visit_mode", false)
+
+        // Load camera settings preferences
+        cameraRatioSetting = sharedPrefs.getString("camera_ratio", "4:3") ?: "4:3"
+        cameraGridSetting = sharedPrefs.getString("camera_grid", "OFF") ?: "OFF"
+        cameraTimerSetting = sharedPrefs.getInt("camera_timer", 0)
+        cameraFocusSetting = sharedPrefs.getString("camera_focus", "AUTO") ?: "AUTO"
+        cameraMirrorSetting = sharedPrefs.getBoolean("camera_mirror", false)
+        cameraSoundSetting = sharedPrefs.getBoolean("camera_sound", true)
+        cameraWbSetting = sharedPrefs.getString("camera_wb", "AUTO") ?: "AUTO"
+        cameraLevelSetting = sharedPrefs.getBoolean("camera_level", false)
+        cameraTextSetting = sharedPrefs.getString("camera_text", "") ?: ""
+        cameraVoiceSetting = sharedPrefs.getBoolean("camera_voice", true)
+        cameraFlashSetting = sharedPrefs.getString("camera_flash", "Auto") ?: "Auto"
+        cameraStampSetting = sharedPrefs.getBoolean("camera_stamp", true)
+        cameraTelemetrySetting = sharedPrefs.getBoolean("camera_telemetry", true)
+        cameraTimeFormatSetting = sharedPrefs.getString("camera_time_format", "12H") ?: "12H"
 
         val orientation = resources.configuration.orientation
         val orientationStr = if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "LANDSCAPE" else "PORTRAIT"
@@ -166,15 +300,18 @@ class MainActivity : AppCompatActivity() {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
-                if (perms.all { it.value }) {
-                    if (::previewView.isInitialized.not()) {
-                        getLocation()
-                        startCamera()
-                        handler.post(updateRunnable)
-                    }
+                val cameraGranted = perms[Manifest.permission.CAMERA] ?: (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+                val fineGranted = perms[Manifest.permission.ACCESS_FINE_LOCATION] ?: (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                val coarseGranted = perms[Manifest.permission.ACCESS_COARSE_LOCATION] ?: (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                
+                if (cameraGranted && (fineGranted || coarseGranted)) {
+                    Log.d("MainActivity", "Required permissions granted via launcher")
+                    startCamera()
+                    getLocation()
+                    handler.removeCallbacks(updateRunnable)
+                    handler.post(updateRunnable)
                 } else {
-                    Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show()
-                    openAppSettings()
+                    Toast.makeText(this, "Camera and Location permissions are required for GPS overlay features.", Toast.LENGTH_LONG).show()
                 }
             }
 
@@ -182,35 +319,10 @@ class MainActivity : AppCompatActivity() {
         displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         setupOrientationListener()
 
-        if (!isIntroShown) {
-            // Play intro video first
-            Log.d("MainActivity", "Showing intro video")
-            setContentView(R.layout.activity_intro)
-            hideSystemUI()
-            val videoView = findViewById<VideoView>(R.id.introVideoView)
-            val introUri = Uri.parse("android.resource://$packageName/${R.raw.intro}")
-            videoView.setVideoURI(introUri)
-            videoView.setOnCompletionListener {
-                isIntroShown = true
-                Log.d("MainActivity", "Intro completed, calling checkInternetAndInitialize")
-                checkInternetAndInitialize()
-            }
-            // Handle Skip intro
-            val skipButton = findViewById<Button>(R.id.skipButton)
-            skipButton.setOnClickListener {
-                videoView.stopPlayback()
-                isIntroShown = true
-                Log.d("MainActivity", "Intro skipped, calling checkInternetAndInitialize")
-                checkInternetAndInitialize()
-            }
-            videoView.start()
-        } else {
-            // After intro, let Android load the correct layout based on orientation
-            Log.d("MainActivity", "Intro already shown, setting main layout for orientation: $orientationStr")
-            setContentView(R.layout.activity_main)
-            Log.d("MainActivity", "Content view set, calling checkInternetAndInitialize")
-            checkInternetAndInitialize()
-        }
+        isIntroShown = true
+        setContentView(R.layout.activity_main)
+        setupTransparentSystemUI()
+        checkInternetAndInitialize()
 
         // Add back press handling
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -243,10 +355,15 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun endIntro() {
+        isIntroShown = true
+        setContentView(R.layout.activity_main)
+        checkInternetAndInitialize()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        // Ensure system UI (back panel) stays hidden during intro video
-        if (hasFocus && !isIntroShown) {
+        if (hasFocus) {
             hideSystemUI()
         }
     }
@@ -254,6 +371,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Log.d("MainActivity", "onResume called")
+        hideSystemUI()
         
         // Load latest visitMode from SharedPreferences
         val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
@@ -268,11 +386,35 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(updateRunnable)
         handler.post(updateRunnable)
         
+        // Initialize and register sensors (accelerometer & magnetometer for compass & leveling)
+        if (sensorManager == null) {
+            sensorManager = getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+            accelerometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+            magnetometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_MAGNETIC_FIELD)
+        }
+        accelerometer?.let {
+            sensorManager?.registerListener(sensorListener, it, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+        magnetometer?.let {
+            sensorManager?.registerListener(sensorListener, it, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+        
         // Immediate UI refresh using cached address and location
+        val currentMapType = MapType.getSelectedMapType(this)
+        if (lastFetchedMapType != null && lastFetchedMapType != currentMapType) {
+            lastOverlayMapThumbnail = null
+        }
+        val noteConfig = CustomNoteConfig.load(this)
+        cameraTextSetting = noteConfig.text
+        gpsOverlayRenderer.customNote = noteConfig.text.ifBlank { null }
+        gpsOverlayRenderer.customNoteConfig = noteConfig
+        updateLiveCustomNoteView(noteConfig)
         updateLiveOverlay()
         
         // Fetch location instantly on resume/return
-        getLocation()
+        if (hasCriticalPermissions()) {
+            getLocation()
+        }
         
         // Adjust overlay with current rotation if views are ready
         try {
@@ -288,6 +430,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "onPause called")
         displayManager.unregisterDisplayListener(displayListener)
         orientationEventListener.disable()
+        sensorManager?.unregisterListener(sensorListener)
     }
 
     override fun onDestroy() {
@@ -301,32 +444,14 @@ class MainActivity : AppCompatActivity() {
         super.onConfigurationChanged(newConfig)
         val orientationStr = if (newConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "LANDSCAPE" else "PORTRAIT"
         Log.d("MainActivity", "onConfigurationChanged called - New Orientation: $orientationStr")
-        Toast.makeText(this, "Orientation: $orientationStr", Toast.LENGTH_SHORT).show()
-        val viewFinder = findViewById<PreviewView>(R.id.viewFinder)
-        if (viewFinder != null) {
-            Log.d("MainActivity", "Camera screen detected, reloading layout for orientation: $orientationStr")
-
-            // Stop the camera and location updates temporarily
-            handler.removeCallbacks(updateRunnable)
-
-            try {
-                // Force layout reload by getting layout inflater and inflating the correct layout
-                val inflater = layoutInflater
-                val newView = inflater.inflate(R.layout.activity_main, null)
-                setContentView(newView)
-
-                Log.d("MainActivity", "Layout inflated for orientation: $orientationStr")
-
-                // Re-initialize the camera and all views
-                initCameraAndListeners()
-
-                Log.d("MainActivity", "Layout reloaded successfully for orientation: $orientationStr")
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error reloading layout: ${e.message}")
-                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+        try {
+            if (::previewView.isInitialized && previewView.parent != null) {
+                displayRotation = getDisplayRotation()
+                adjustGpsOverlayPosition(displayRotation)
+                updateLiveOverlay()
             }
-        } else {
-            Log.d("MainActivity", "Not on camera screen, skipping layout reload")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error handling configuration change: ${e.message}")
         }
     }
 
@@ -335,22 +460,10 @@ class MainActivity : AppCompatActivity() {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
 
-                // Correct mapping: 90 degrees is Landscape (Top points Left), 270 is Reverse Landscape
-                // Let's stick to standard Android:
-                // 0 = Portrait
-                // 90 = Landscape (Top points Left) -> ROTATION_90
-                // 180 = Reverse Portrait
-                // 270 = Reverse Landscape (Top points Right) -> ROTATION_270
-
-                // My previous code:
-                // 45..134 -> ROTATION_270. (Mapped sensor 90 to display 270).
-                // 225..314 -> ROTATION_90. (Mapped sensor 270 to display 90).
-
-                // The fix is to swap them.
                 val correctedRotation = when (orientation) {
-                    in 45..134 -> Surface.ROTATION_90 // Sensor 90 (Right side down) -> Surface.ROTATION_90 (Landscape)
+                    in 45..134 -> Surface.ROTATION_270
                     in 135..224 -> Surface.ROTATION_180
-                    in 225..314 -> Surface.ROTATION_270 // Sensor 270 (Left side down) -> Surface.ROTATION_270 (Reverse Landscape)
+                    in 225..314 -> Surface.ROTATION_90
                     else -> Surface.ROTATION_0
                 }
 
@@ -358,6 +471,7 @@ class MainActivity : AppCompatActivity() {
                     displayRotation = correctedRotation
                     Log.d("OrientationListener", "Rotation changed to $displayRotation")
                     adjustGpsOverlayPosition(displayRotation)
+                    updateWatermarkModeText()
                 }
             }
         }
@@ -372,18 +486,49 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isLandscapeRotation(rotation: Int): Boolean {
+        return rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270
+    }
+
+    private fun isCurrentLandscape(): Boolean {
+        return isLandscapeRotation(displayRotation) ||
+                resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    }
+
+    private fun isLandscapeLayout(): Boolean {
+        return isCurrentLandscape()
+    }
+
+    private fun updateWatermarkModeText() {
+        val liveModeWatermarkBeforeBarcode = findViewById<TextView>(R.id.liveModeWatermarkBeforeBarcode)
+        val liveModeWatermarkCorner = findViewById<TextView>(R.id.liveModeWatermarkCorner)
+        val isLandscape = isCurrentLandscape()
+        val orientationStr = if (isLandscape) "Landscape Mode" else "Portrait Mode"
+        val cameraLabel = if (isBackCamera) "Rear Camera" else "Front Camera"
+        val watermarkStamp = if (cameraStampSetting) "$orientationStr • $cameraLabel" else orientationStr
+
+        val lat = currentLocation?.latitude
+        val lon = currentLocation?.longitude
+        val selectedTemplate = OverlayTemplate.getSelectedTemplate(this)
+        val isBarcodeTemplate = (selectedTemplate == OverlayTemplate.SCAN_LOCATION && lat != null && lon != null)
+        if (isBarcodeTemplate) {
+            liveModeWatermarkBeforeBarcode?.text = watermarkStamp
+            liveModeWatermarkBeforeBarcode?.visibility = View.VISIBLE
+            liveModeWatermarkCorner?.visibility = View.GONE
+        } else {
+            liveModeWatermarkCorner?.text = watermarkStamp
+            liveModeWatermarkCorner?.visibility = View.VISIBLE
+            liveModeWatermarkBeforeBarcode?.visibility = View.GONE
+        }
+    }
+
     private enum class OverlayAnchor { BOTTOM_RIGHT, BOTTOM_LEFT, TOP_RIGHT, TOP_LEFT, CENTER }
     private var currentAnchor = OverlayAnchor.BOTTOM_RIGHT
 
     private fun adjustGpsOverlayPosition(rotation: Int) {
         // Update ImageCapture rotation to match physical device rotation
         if (::imageCapture.isInitialized) {
-            val cameraRotation = when (rotation) {
-                Surface.ROTATION_90 -> Surface.ROTATION_270
-                Surface.ROTATION_270 -> Surface.ROTATION_90
-                else -> rotation
-            }
-            imageCapture.targetRotation = cameraRotation
+            imageCapture.targetRotation = rotation
         }
 
         val rootLayout = findViewById<ConstraintLayout>(R.id.rootContainer) ?: return
@@ -408,14 +553,17 @@ class MainActivity : AppCompatActivity() {
             contentLayout.orientation = LinearLayout.HORIZONTAL
             
             // Update content layout params to match parent
-            contentLayout.layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
+            val contentParams = (contentLayout.layoutParams as? LinearLayout.LayoutParams)
+                ?: LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            contentParams.width = LinearLayout.LayoutParams.MATCH_PARENT
+            contentParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
+            contentLayout.layoutParams = contentParams
 
-            val isLandscape = rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270
-            val isPortrait = rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180
-            val globalScale = if (isPortrait) 0.9f else 0.8f
+            val isLandscape = isCurrentLandscape()
+            val isPortrait = !isLandscape
             val density = resources.displayMetrics.density
 
             // Reset transforms
@@ -423,105 +571,203 @@ class MainActivity : AppCompatActivity() {
             overlayWrapper.scaleY = 1.0f
             overlayWrapper.rotation = 0f
             overlayWrapper.translationX = 0f
-            overlayWrapper.translationY = 0f // Reset Y translation as well
+            overlayWrapper.translationY = 0f
 
-            // 1. Adjust Map Size (Further reduction for Landscape)
-            findViewById<View>(R.id.liveMapThumbnailContainer)?.let { mv ->
-                val mapMinH = if (isLandscape) (50 * density * globalScale).toInt() else (80 * density * globalScale).toInt()
-                mv.minimumHeight = mapMinH
-                val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT).apply {
-                    weight = if (isLandscape) 0.35f else 0.55f // Further reduced map weight
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-                mv.layoutParams = params
+            // 1. Maintain Pristine Fixed Square Map & QR Code Size
+            val mapCard = findViewById<View>(R.id.liveMapThumbnailCard)
+            val qrCard = findViewById<View>(R.id.liveQrCodeCard)
+            val mapSizePx = (if (isLandscape) 82 * density else 80 * density).toInt()
+            val qrSizePx = (if (isLandscape) 78 * density else 78 * density).toInt()
+            val compassSizePx = (if (isLandscape) 76 * density else 72 * density).toInt()
+
+            mapCard?.layoutParams?.let { params ->
+                params.width = mapSizePx
+                params.height = mapSizePx
+                mapCard.layoutParams = params
             }
-            
-            // 2. Update text container params
-            val updatedTextParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                weight = if (isLandscape) 1.65f else 1.45f // Increased text weight accordingly
-                marginStart = (14 * density * globalScale).toInt()
+            qrCard?.layoutParams?.let { params ->
+                params.width = qrSizePx
+                params.height = qrSizePx
+                qrCard.layoutParams = params
+            }
+            findViewById<View>(R.id.liveCompassDial)?.layoutParams?.let { params ->
+                params.width = compassSizePx
+                params.height = compassSizePx
+            }
+            findViewById<View>(R.id.liveMiniMapThumbnailCard)?.layoutParams?.let { params ->
+                params.width = compassSizePx
+                params.height = compassSizePx
+            }
+
+            // 2. Adjust Text Sizes to look filled and clearly legible in Landscape
+            val cityHeaderView = findViewById<TextView>(R.id.geo_city_header)
+            val addrView = findViewById<TextView>(R.id.geo_address)
+            val latLonView = findViewById<TextView>(R.id.geo_latlon)
+            val dateTimeView = findViewById<TextView>(R.id.geo_datetime)
+            val azimuthView = findViewById<TextView>(R.id.liveAzimuthText)
+            val telemetryView = findViewById<TextView>(R.id.liveTelemetryText)
+            val watermarkView = findViewById<TextView>(R.id.liveModeWatermarkBeforeBarcode)
+            val watermarkCorner = findViewById<TextView>(R.id.liveModeWatermarkCorner)
+            val bigTimeView = findViewById<TextView>(R.id.liveBigTime)
+            val dateLineView = findViewById<TextView>(R.id.liveDateLine)
+            val dayLineView = findViewById<TextView>(R.id.liveDayLine)
+
+            if (isLandscape) {
+                cityHeaderView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16.5f)
+                addrView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                latLonView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11.5f)
+                dateTimeView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11.5f)
+                azimuthView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                telemetryView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                watermarkView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f)
+                watermarkCorner?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 9.5f)
+                bigTimeView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20f)
+                dateLineView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                dayLineView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+            } else {
+                cityHeaderView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15.5f)
+                addrView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+                latLonView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                dateTimeView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                azimuthView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f)
+                telemetryView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f)
+                watermarkView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 9.5f)
+                watermarkCorner?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 8f)
+                bigTimeView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
+                dateLineView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+                dayLineView?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
+
+            // 3. Update text container params
+            val updatedTextParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f).apply {
+                marginStart = (10 * density).toInt()
+                marginEnd = (6 * density).toInt()
                 gravity = Gravity.CENTER_VERTICAL
             }
             textContainer.layoutParams = updatedTextParams
-            textContainer.setPadding(
-                (8 * density * globalScale).toInt(),
-                (4 * density * globalScale).toInt(),
-                (8 * density * globalScale).toInt(),
-                (4 * density * globalScale).toInt()
-            )
 
-            if (rotation == Surface.ROTATION_0) {
-                // PORTRAIT: Full width, centered bottom
+            val rootW = rootLayout.width
+            val rootH = rootLayout.height
+            val isWindowLandscape = rootW > rootH
+
+            if (isWindowLandscape) {
+                // System window is already in landscape mode. Reduced width (~0.68f) centered at the bottom
+                overlayWrapper.rotation = 0f
+                overlayWrapper.translationX = 0f
+                overlayWrapper.translationY = 0f
+
+                val targetWidth = (rootW * 0.68f).toInt()
                 val set = ConstraintSet()
                 set.clone(rootLayout)
                 set.clear(R.id.gpsOverlayWrapper)
-                set.connect(R.id.gpsOverlayWrapper, ConstraintSet.BOTTOM, R.id.zoomButtonContainer, ConstraintSet.TOP, (4 * density).toInt())
+                
+                // Position at the bottom of the landscape screen, centered
+                set.connect(R.id.gpsOverlayWrapper, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, (10 * density).toInt())
+                set.connect(R.id.gpsOverlayWrapper, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
+                set.connect(R.id.gpsOverlayWrapper, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
+                set.centerHorizontally(R.id.gpsOverlayWrapper, ConstraintSet.PARENT_ID)
+                
+                set.constrainWidth(R.id.gpsOverlayWrapper, targetWidth)
+                set.constrainHeight(R.id.gpsOverlayWrapper, ConstraintSet.WRAP_CONTENT)
+                set.applyTo(rootLayout)
+
+                overlayWrapper.layoutParams.width = targetWidth
+                overlayCard.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+                overlayCard.requestLayout()
+                overlayWrapper.requestLayout()
+            } else if (rotation == Surface.ROTATION_0) {
+                // PORTRAIT: Full width, positioned at the bottom above the zoom buttons
+                overlayWrapper.rotation = 0f
+                overlayWrapper.translationX = 0f
+                overlayWrapper.translationY = 0f
+
+                val set = ConstraintSet()
+                set.clone(rootLayout)
+                set.clear(R.id.gpsOverlayWrapper)
+                val zoomContainer = findViewById<View>(R.id.zoomButtonContainer)
+                if (zoomContainer != null && zoomContainer.visibility == View.VISIBLE) {
+                    set.connect(R.id.gpsOverlayWrapper, ConstraintSet.BOTTOM, R.id.zoomButtonContainer, ConstraintSet.TOP, (12 * density).toInt())
+                } else if (buttonLayout != null && buttonLayout.visibility == View.VISIBLE) {
+                    set.connect(R.id.gpsOverlayWrapper, ConstraintSet.BOTTOM, R.id.buttonLayout, ConstraintSet.TOP, (12 * density).toInt())
+                } else {
+                    set.connect(R.id.gpsOverlayWrapper, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, (12 * density).toInt())
+                }
                 set.connect(R.id.gpsOverlayWrapper, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, 0)
                 set.connect(R.id.gpsOverlayWrapper, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, 0)
                 set.constrainWidth(R.id.gpsOverlayWrapper, ConstraintSet.MATCH_CONSTRAINT)
                 set.constrainHeight(R.id.gpsOverlayWrapper, ConstraintSet.WRAP_CONTENT)
                 set.applyTo(rootLayout)
                 
-                overlayWrapper.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+                val lp = overlayWrapper.layoutParams as? ConstraintLayout.LayoutParams
+                if (lp != null) {
+                    lp.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+                    lp.height = ConstraintLayout.LayoutParams.WRAP_CONTENT
+                    overlayWrapper.layoutParams = lp
+                }
                 overlayCard.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
                 overlayCard.requestLayout()
                 overlayWrapper.requestLayout()
             } else {
-                // LANDSCAPE: Centered horizontally on the long edge with equal margins
-                val rootW = rootLayout.width
-                val rootH = rootLayout.height
-
+                // LANDSCAPE IN PORTRAIT WINDOW:
+                // Device physically rotated, but window is portrait.
+                // Rotate overlay so text is right-side up, and shift to landscape bottom edge.
                 val (screenEdgeLength, rotAngle) = when (rotation) {
-                    Surface.ROTATION_90 -> Pair(rootH, -90f)
-                    Surface.ROTATION_270 -> Pair(rootH, 90f)
+                    Surface.ROTATION_90 -> Pair(rootH, 90f)      // 90 deg clockwise to be right-side up
+                    Surface.ROTATION_270 -> Pair(rootH, -90f)   // 90 deg counter-clockwise to be right-side up
                     Surface.ROTATION_180 -> Pair(rootW, 180f)
                     else -> Pair(rootW, 0f)
                 }
 
-                val targetWidth = (screenEdgeLength * 0.7f).toInt() 
-                
-                // CRUCIAL: Set WRAPPER width to targetWidth too, otherwise it rotates a full-screen bar
+                val targetWidth = (screenEdgeLength * 0.68f).toInt() 
                 overlayWrapper.layoutParams.width = targetWidth
                 overlayWrapper.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
                 overlayCard.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
                 
-                // Measure card height
-                overlayCard.measure(
+                overlayWrapper.measure(
                     View.MeasureSpec.makeMeasureSpec(targetWidth, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
                 )
-                val barHeight = overlayCard.measuredHeight
+                val wrapperHeight = overlayWrapper.measuredHeight
 
-                // Dead center the wrapper first
                 val set = ConstraintSet()
                 set.clone(rootLayout)
                 set.clear(R.id.gpsOverlayWrapper)
                 set.centerHorizontally(R.id.gpsOverlayWrapper, ConstraintSet.PARENT_ID)
                 set.centerVertically(R.id.gpsOverlayWrapper, ConstraintSet.PARENT_ID)
                 set.constrainWidth(R.id.gpsOverlayWrapper, targetWidth)
-                set.constrainHeight(R.id.gpsOverlayWrapper, barHeight)
+                set.constrainHeight(R.id.gpsOverlayWrapper, wrapperHeight)
                 set.applyTo(rootLayout)
 
                 overlayWrapper.rotation = rotAngle
                 
-                // Perfect Centering Logic:
-                // translationY=0 ensures it is perfectly centered along the software WIDTH (physical long axis)
-                // translationX moves it to the software BOTTOM (physical short axis edge)
+                val bottomMargin = 12 * density // Distance from physical bottom edge of screen in landscape
                 val tx = when (rotation) {
-                    Surface.ROTATION_90 -> (rootW - barHeight) / 2f - (12 * density)
-                    Surface.ROTATION_270 -> -(rootW - barHeight) / 2f + (12 * density)
-                    Surface.ROTATION_180 -> -(rootH - barHeight) / 2f + (12 * density)
+                    Surface.ROTATION_90 -> -((rootW - wrapperHeight) / 2f - bottomMargin)
+                    Surface.ROTATION_270 -> ((rootW - wrapperHeight) / 2f - bottomMargin)
                     else -> 0f
                 }
+                val ty = when (rotation) {
+                    Surface.ROTATION_180 -> -((rootH - wrapperHeight) / 2f - (80 * density))
+                    else -> -24 * density // slightly offset away from bottom shutter button
+                }
                 overlayWrapper.translationX = tx
-                overlayWrapper.translationY = 0f 
+                overlayWrapper.translationY = ty
                 
                 overlayCard.requestLayout()
                 overlayWrapper.requestLayout()
             }
+
+            updateWatermarkModeText()
         }
     }
 
+
+    private fun hasCriticalPermissions(): Boolean {
+        val hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val hasFineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return hasCamera && (hasFineLocation || hasCoarseLocation)
+    }
 
     private fun requestPermissions() {
         val permissions = mutableListOf(
@@ -545,45 +791,120 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    private fun getUltraWideCameraSelector(cameraProvider: ProcessCameraProvider): CameraSelector? {
+        var bestCameraInfo: androidx.camera.core.CameraInfo? = null
+        var minFocalLength = Float.MAX_VALUE
+
+        for (cameraInfo in cameraProvider.availableCameraInfos) {
+            val camera2Info = try {
+                Camera2CameraInfo.from(cameraInfo)
+            } catch (e: Exception) {
+                continue
+            }
+            val lensFacing = camera2Info.getCameraCharacteristic(CameraCharacteristics.LENS_FACING)
+            if (lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                val focalLengths = camera2Info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                if (focalLengths != null && focalLengths.isNotEmpty()) {
+                    val shortest = focalLengths.minOrNull() ?: Float.MAX_VALUE
+                    if (shortest < minFocalLength) {
+                        minFocalLength = shortest
+                        bestCameraInfo = cameraInfo
+                    }
+                }
+            }
+        }
+
+        // Standard wide-angle lenses have focal length of ~4.0mm to 4.5mm.
+        // Ultra-wide angle lenses typically have a focal length < 3.2mm (commonly 1.5mm - 2.5mm).
+        if (bestCameraInfo != null && minFocalLength < 3.2f) {
+            return CameraSelector.Builder()
+                .addCameraFilter { cameraInfos ->
+                    cameraInfos.filter { it == bestCameraInfo }
+                }
+                .build()
+        }
+
+        // Secondary fallback checking minZoomRatio < 1.0f on any back camera
+        for (cameraInfo in cameraProvider.availableCameraInfos) {
+            val state = cameraInfo.zoomState.value
+            if (state != null && state.minZoomRatio < 1.0f) {
+                return CameraSelector.Builder()
+                    .addCameraFilter { cameraInfos ->
+                        cameraInfos.filter { it == cameraInfo }
+                    }
+                    .build()
+            }
+        }
+        return null
+    }
+
     private fun startCamera() {
-        // Ensure SurfaceView mode so overlays render correctly
-        previewView.implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+        // Use COMPATIBLE (TextureView) mode to prevent SurfaceView buffer queue abandonment
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
+            val ratioVal = if (cameraRatioSetting == "16:9") AspectRatio.RATIO_16_9 else AspectRatio.RATIO_4_3
+            val preview = Preview.Builder()
+                .setTargetAspectRatio(ratioVal)
+                .build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+            val flashModeVal = when (cameraFlashSetting) {
+                "On" -> ImageCapture.FLASH_MODE_ON
+                "Auto" -> ImageCapture.FLASH_MODE_AUTO
+                else -> ImageCapture.FLASH_MODE_OFF
             }
-            imageCapture = ImageCapture.Builder().build()
-
-            // Setup video capture (Optimized to 720p HD with fallback for extremely fast post-processing)
-            val recorder = androidx.camera.video.Recorder.Builder()
-                .setQualitySelector(
-                    androidx.camera.video.QualitySelector.from(
-                        androidx.camera.video.Quality.HD,
-                        androidx.camera.video.FallbackStrategy.higherQualityOrLowerThan(androidx.camera.video.Quality.HD)
-                    )
-                )
+            val initialRot = if (displayRotation != Surface.ROTATION_0) displayRotation else getDisplayRotation()
+            imageCapture = ImageCapture.Builder()
+                .setTargetAspectRatio(ratioVal)
+                .setFlashMode(flashModeVal)
+                .setTargetRotation(initialRot)
                 .build()
-            videoCapture = androidx.camera.video.VideoCapture.withOutput(recorder)
 
-            val cameraSelector =
-                if (isBackCamera) CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
+            val wideSelector = if (currentZoomRatio == 0.6f) getUltraWideCameraSelector(cameraProvider) else null
+            if (currentZoomRatio == 0.6f && wideSelector == null) {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Physical ultra-wide lens (0.6x) is not supported on this device. Using widest 1.0x view instead.", Toast.LENGTH_LONG).show()
+                }
+            }
+            val cameraSelector = if (isBackCamera) {
+                wideSelector ?: CameraSelector.DEFAULT_BACK_CAMERA
+            } else {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            }
+
+            isVideoSupported = false
+
             try {
                 cameraProvider.unbindAll()
-                val camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, videoCapture)
+                
+                // Bind use cases to camera (photo capture and viewfinder preview)
+                val camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
                 
                 // Save camera reference for zoom control
                 cameraControl = camera.cameraControl
                 cameraInfo = camera.cameraInfo
-                // Apply current zoom state
-                cameraControl?.setZoomRatio(currentZoomRatio)
+                
+                // Apply zoom ratio safely. On physical ultra-wide camera, base 1.0f zoom represents the widest (0.6x) field of view.
+                val targetZoom = if (currentZoomRatio == 0.6f) 1.0f else currentZoomRatio
+                try {
+                    cameraControl?.setZoomRatio(targetZoom)
+                } catch (e: Exception) {
+                    Log.e("Camera", "Failed setting initial zoom: ${e.message}")
+                }
 
-                // Show .6x button only if supported (ultra-wide lens available)
+                // Update UI based on video recording support
+                runOnUiThread {
+                    findViewById<ImageButton>(R.id.video_record_button)?.apply {
+                        alpha = 0.6f
+                    }
+                }
+
+                // Show .6x button to allow wide-angle zoom selection
                 camera.cameraInfo.zoomState.observe(this@MainActivity) { state ->
-                    val minZoom = state.minZoomRatio
                     runOnUiThread {
-                        findViewById<TextView>(R.id.zoomButton06x)?.visibility = if (minZoom <= 0.61f) View.VISIBLE else View.GONE
+                        findViewById<TextView>(R.id.zoomButton06x)?.visibility = View.VISIBLE
                     }
                 }
 
@@ -593,6 +914,21 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Camera initialization failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun applyFlashSetting() {
+        if (::imageCapture.isInitialized) {
+            val mode = when (cameraFlashSetting) {
+                "On" -> ImageCapture.FLASH_MODE_ON
+                "Auto" -> ImageCapture.FLASH_MODE_AUTO
+                else -> ImageCapture.FLASH_MODE_OFF
+            }
+            try {
+                imageCapture.flashMode = mode
+            } catch (e: Exception) {
+                Log.w("Camera", "Failed to set flash mode: ${e.message}")
+            }
+        }
     }
 
     private fun getLocation() {
@@ -622,11 +958,10 @@ class MainActivity : AppCompatActivity() {
 
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
+        val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFine || hasCoarse) {
             try {
                 // Create location request
                 val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
@@ -679,13 +1014,7 @@ class MainActivity : AppCompatActivity() {
                 ).show()
             }
         } else {
-            Log.e("Location", "Location permission not granted")
-            Toast.makeText(
-                this,
-                "Location permission required",
-                Toast.LENGTH_SHORT
-            ).show()
-            requestPermissions()
+            Log.d("Location", "Location permission not granted inside getLocation() - waiting for user permission")
         }
     }
 
@@ -697,26 +1026,51 @@ class MainActivity : AppCompatActivity() {
         if (fullAddress.isBlank() || fullAddress == "Fetching address..." || fullAddress == "GPS Details not fetched") {
             return "Location Unavailable"
         }
-        val parts = fullAddress.split(",").map { it.trim() }
-        // Try to extract city, state, country from the end of the address
-        return when {
+        val clean = fullAddress.replace("\n", ", ")
+        val parts = clean.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        val header = when {
             parts.size >= 3 -> {
-                // Last part is usually country or pincode+country
                 val country = parts.last().replace(Regex("\\d+"), "").trim()
                 val state = parts[parts.size - 2].replace(Regex("\\d+"), "").trim()
                 val city = parts[parts.size - 3].replace(Regex("\\d+"), "").trim()
-                val header = listOf(city, state, country).filter { it.isNotBlank() }.joinToString(", ")
-                if (country.equals("India", ignoreCase = true)) "$header \uD83C\uDDEE\uD83C\uDDF3" else header
+                listOf(city, state, country).filter { it.isNotBlank() }.joinToString(", ")
             }
             parts.size == 2 -> "${parts[0]}, ${parts[1]}"
-            else -> fullAddress
+            else -> clean
         }
+        val isIndia = header.contains("India", ignoreCase = true) ||
+                header.contains("भारत") ||
+                header.contains("Gujarat", ignoreCase = true) ||
+                header.contains("गुजरात") ||
+                header.contains("Surat", ignoreCase = true) ||
+                header.contains("सूरत")
+        return if (isIndia && !header.contains("\uD83C\uDDEE\uD83C\uDDF3")) "$header \uD83C\uDDEE\uD83C\uDDF3" else header
+    }
+
+    /**
+     * Clean and format street address for compact 1-2 line display
+     */
+    private fun formatCleanStreetAddress(fullAddress: String): String {
+        if (fullAddress.isBlank() || fullAddress == "Fetching address..." || fullAddress == "GPS Details not fetched") {
+            return "Fetching location..."
+        }
+        return fullAddress
+            .replace("\n", ", ")
+            .replace(Regex(",\\s*,"), ",")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .trimEnd(',')
     }
 
     private fun updateLiveOverlay() {
         // Bring the overlay card to front
         val card = findViewById<MaterialCardView>(R.id.gpsOverlayCard) ?: return
         card.bringToFront()
+
+        val selectedTemplate = OverlayTemplate.getSelectedTemplate(this)
+        card.setCardBackgroundColor(Color.parseColor("#CC101418")) // deep charcoal dark translucent
+        val textContainer = findViewById<View>(R.id.gpsOverlayTextContainer)
+        textContainer?.setPadding(4, 0, 4, 0)
 
         // Align renderer layout with UI orientation
         val isLandscape = isLandscapeLayout()
@@ -733,84 +1087,541 @@ class MainActivity : AppCompatActivity() {
         val lat = currentLocation?.latitude
         val lon = currentLocation?.longitude
 
+        val appLang = AppLanguage.getSelectedLanguage(this)
+
         // Bold city/state header with flag
         cityHeaderView.text = extractCityStateCountry(address)
 
-        // Combined Lat/Long in one line
+        // Combined Lat/Long in one single line
+        val lonLabel = if (appLang == AppLanguage.ENGLISH) "Long" else appLang.lonLabel
         val latLonText = if (lat != null && lon != null) {
-            "Lat %.5f°   Long %.5f°".format(lat, lon)
+            "${appLang.latLabel} %.6f°   $lonLabel %.6f°".format(lat, lon)
         } else {
-            "Lat --°   Long --°"
+            "${appLang.latLabel} --°   $lonLabel --°"
         }
 
-        // Date/time in 12hr format
-        val dateTimeText = SimpleDateFormat("EEEE, dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
+        // Date/time in selected language locale on one single line
+        val timePattern = if (cameraTimeFormatSetting == "24H") "EEEE, dd/MM/yyyy HH:mm:ss" else "EEEE, dd/MM/yyyy hh:mm a"
+        val dateTimeText = SimpleDateFormat(timePattern, appLang.locale).format(Date())
 
-        // Merge all values into the address TextView for uniform line spacing
-        addrView.text = "$address\n$latLonText\n$dateTimeText"
-
-        // Update hidden views for backwards compatibility and state tracking
+        // Separate and format views cleanly (matching Image 1)
+        val cleanAddr = formatCleanStreetAddress(address)
+        addrView.text = cleanAddr
+        latLonView.visibility = View.VISIBLE
         latLonView.text = latLonText
+        dateTimeView.visibility = View.VISIBLE
         dateTimeView.text = dateTimeText
 
+        // Apply highly dynamic live text autoscaling based on length & character count
+        adjustLiveTextSizes(
+            cityHeaderView, addrView, latLonView, dateTimeView,
+            cityHeaderView.text.toString(), cleanAddr, latLonText, dateTimeText,
+            selectedTemplate
+        )
+
         // For backward compatibility with PDF/gallery overlay
-        lastOverlayLatText = lat?.let { "%.5f".format(it) } ?: "--"
-        lastOverlayLonText = lon?.let { "%.5f".format(it) } ?: "--"
+        lastOverlayLatText = lat?.let { "%.6f".format(it) } ?: "--"
+        lastOverlayLonText = lon?.let { "%.6f".format(it) } ?: "--"
 
         // Update state and refresh UI immediately for text
-        lastOverlayAddrText = address
+        lastOverlayAddrText = cleanAddr
         lastOverlayDateTime = dateTimeView.text.toString()
+
+        // Configure template-specific views
+        val badgeContainer = findViewById<View>(R.id.badgeContainer)
+        val badgeText = findViewById<TextView>(R.id.badgeText)
+        val liveDateTimeHeader = findViewById<View>(R.id.liveDateTimeHeader)
+        val liveBigTime = findViewById<TextView>(R.id.liveBigTime)
+        val liveDateLine = findViewById<TextView>(R.id.liveDateLine)
+        val liveDayLine = findViewById<TextView>(R.id.liveDayLine)
+
+        val liveMapThumbnailCard = findViewById<View>(R.id.liveMapThumbnailCard)
+        val liveCheckInRibbon = findViewById<TextView>(R.id.liveCheckInRibbon)
+        val liveCompassDial = findViewById<ImageView>(R.id.liveCompassDial)
+        val liveQrCodeCard = findViewById<View>(R.id.liveQrCodeCard)
+        val liveQrCode = findViewById<ImageView>(R.id.liveQrCode)
+        val liveMiniMapThumbnailCard = findViewById<View>(R.id.liveMiniMapThumbnailCard)
+        val liveMiniMapThumbnail = findViewById<ImageView>(R.id.liveMiniMapThumbnail)
+        val liveAzimuthText = findViewById<TextView>(R.id.liveAzimuthText)
+        val liveTelemetryText = findViewById<TextView>(R.id.liveTelemetryText)
+
+        gpsOverlayRenderer.currentAzimuth = currentDeviceAzimuth
+        gpsOverlayRenderer.currentAltitude = currentLocation?.altitude ?: 15.0
+        gpsOverlayRenderer.currentMagneticField = currentDeviceMagneticField
+        gpsOverlayRenderer.isBackCamera = isBackCamera
+        gpsOverlayRenderer.showCameraStamp = cameraStampSetting
+
+        val badgeTitle = "Ads Free GPS Cam Visit Pro"
+
+        // Ensure "Ads Free" badge is visible across all templates as requested
+        badgeContainer?.visibility = View.VISIBLE
+        badgeText?.text = badgeTitle
+        findViewById<ImageView>(R.id.badgeAppThumbnail)?.apply {
+            setImageResource(R.mipmap.ic_launcher_round)
+            visibility = View.VISIBLE
+        }
+
+        updateWatermarkModeText()
+
+        when (selectedTemplate) {
+            OverlayTemplate.DATETIME -> {
+                liveDateTimeHeader?.visibility = View.VISIBLE
+                liveMapThumbnailCard?.visibility = View.GONE
+                liveCheckInRibbon?.visibility = View.GONE
+                liveCompassDial?.visibility = View.GONE
+                liveQrCodeCard?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.GONE
+                liveAzimuthText?.visibility = View.GONE
+                liveTelemetryText?.visibility = View.GONE
+
+                val now = Date()
+                liveBigTime?.text = SimpleDateFormat("hh:mm a", appLang.locale).format(now)
+                liveDateLine?.text = SimpleDateFormat("dd MMMM yyyy", appLang.locale).format(now)
+                liveDayLine?.text = SimpleDateFormat("EEEE", appLang.locale).format(now)
+
+                // Fill card space generously
+                addrView.maxLines = 3
+                dateTimeView.visibility = View.GONE
+            }
+            OverlayTemplate.SCAN_LOCATION -> {
+                liveDateTimeHeader?.visibility = View.GONE
+                liveMapThumbnailCard?.visibility = View.VISIBLE
+                liveCheckInRibbon?.visibility = View.GONE
+                liveCompassDial?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.GONE
+                liveAzimuthText?.visibility = View.GONE
+                liveTelemetryText?.visibility = View.GONE
+
+                if (lat != null && lon != null) {
+                    liveQrCodeCard?.visibility = View.VISIBLE
+                    addrView.maxLines = 2
+                    val qrBmp = QrCodeGenerator.generateQrCode("https://maps.google.com/?q=$lat,$lon", 240)
+                    qrBmp?.let { liveQrCode?.setImageBitmap(it) }
+                } else {
+                    // If QR not available, expand text font and lines to occupy vacant space
+                    liveQrCodeCard?.visibility = View.GONE
+                    addrView.maxLines = 3
+                }
+            }
+            OverlayTemplate.CLASSIC -> {
+                liveDateTimeHeader?.visibility = View.GONE
+                liveMapThumbnailCard?.visibility = View.VISIBLE
+                liveCheckInRibbon?.visibility = View.GONE
+                liveCompassDial?.visibility = View.GONE
+                liveQrCodeCard?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.GONE
+                liveAzimuthText?.visibility = View.GONE
+                liveTelemetryText?.visibility = View.GONE
+
+                // Use vacant barcode space
+                addrView.maxLines = 3
+            }
+            OverlayTemplate.REPORTING -> {
+                liveDateTimeHeader?.visibility = View.GONE
+                liveMapThumbnailCard?.visibility = View.VISIBLE
+                liveCheckInRibbon?.visibility = View.VISIBLE
+                liveCheckInRibbon?.text = appLang.checkInLabel
+                liveCompassDial?.visibility = View.GONE
+                liveQrCodeCard?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.GONE
+                liveAzimuthText?.visibility = View.GONE
+                liveTelemetryText?.visibility = View.GONE
+
+                // Use vacant barcode space
+                addrView.maxLines = 3
+            }
+            OverlayTemplate.NAVIGATION_COMPASS -> {
+                liveDateTimeHeader?.visibility = View.GONE
+                liveMapThumbnailCard?.visibility = View.GONE
+                liveCheckInRibbon?.visibility = View.GONE
+                liveCompassDial?.visibility = View.VISIBLE
+                liveQrCodeCard?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.VISIBLE
+                liveAzimuthText?.visibility = View.VISIBLE
+                liveTelemetryText?.visibility = View.VISIBLE
+
+                addrView.maxLines = 2
+
+                liveAzimuthText?.text = "${appLang.azimuthLabel} : %.2f°".format(Locale.US, currentDeviceAzimuth)
+                val altitude = currentLocation?.altitude ?: 15.0
+                liveTelemetryText?.text = "⛰️ %.0f m (${appLang.altLabel})       \uD83E\uDDF2 %.2f µT".format(Locale.US, altitude, currentDeviceMagneticField)
+
+                try {
+                    val dialBmp = Bitmap.createBitmap(160, 160, Bitmap.Config.ARGB_8888)
+                    val dialCanvas = Canvas(dialBmp)
+                    CompassRenderer.drawCompassDial(dialCanvas, RectF(0f, 0f, 160f, 160f), currentDeviceAzimuth)
+                    liveCompassDial?.setImageBitmap(dialBmp)
+                } catch (e: Exception) {
+                    // ignore
+                }
+
+                lastOverlayMapThumbnail?.let {
+                    liveMiniMapThumbnail?.setImageBitmap(it)
+                }
+            }
+            OverlayTemplate.LOCATION_WATERMARK -> {
+                liveDateTimeHeader?.visibility = View.GONE
+                liveMapThumbnailCard?.visibility = View.VISIBLE
+                liveCheckInRibbon?.visibility = View.GONE
+                liveCompassDial?.visibility = View.GONE
+                liveQrCodeCard?.visibility = View.GONE
+                liveMiniMapThumbnailCard?.visibility = View.GONE
+                liveAzimuthText?.visibility = View.GONE
+                liveTelemetryText?.visibility = View.GONE
+
+                cityHeaderView.text = "📍 " + extractCityStateCountry(address).uppercase(Locale.US)
+                addrView.maxLines = 2
+                addrView.text = cleanAddr
+                latLonView.visibility = View.VISIBLE
+                latLonView.setTextColor(Color.parseColor("#80D8FF"))
+                latLonView.text = latLonText
+                dateTimeView.visibility = View.VISIBLE
+                dateTimeView.text = dateTimeText
+
+                lastOverlayMapThumbnail?.let {
+                    mapImageView.setImageBitmap(it)
+                }
+            }
+        }
 
         // Fetch and display static map thumbnail with distance threshold
         if (lat != null && lon != null) {
             val dist = FloatArray(1)
             Location.distanceBetween(lastMapLat, lastMapLon, lat, lon, dist)
+            val currentMapType = MapType.getSelectedMapType(this)
             
-            if (lastOverlayMapThumbnail == null || dist[0] > 5.0) {
-                val apiKey = try {
-                    BuildConfig.MAPS_API_KEY
-                } catch (e: Exception) {
-                    "AIzaSyCfJ2d9XnWCbbi2hMBoQLma19Pr8fVNeaU"
-                }
+            if (lastOverlayMapThumbnail == null || isUsingFallbackThumbnail || dist[0] > 5.0 || lastFetchedMapType != currentMapType) {
+                lastFetchedMapType = currentMapType
+                
+                // Immediately update coordinates to prevent parallel triggers
+                lastMapLat = lat
+                lastMapLon = lon
 
-                val url = "https://maps.googleapis.com/maps/api/staticmap" +
-                        "?center=$lat,$lon" +
-                        "&zoom=17&size=400x400&scale=2" +
-                        "&markers=color:red%7C$lat,$lon" +
-                        "&key=$apiKey"
+                val zoom = currentMapType.defaultZoom
+                val mapTypeParam = currentMapType.googleMapType
 
-                lifecycleScope.launch {
+                val candidateKeys = listOf(
+                    "AIzaSyCfJ2d9XnWCbbi2hMBoQLma19Pr8fVNeaU",
+                    BuildConfig.MAPS_API_KEY,
+                    "AIzaSyDBr0XfggiNMjgaqZXwJg4lDP-X9fHBtXY"
+                ).distinct().filter { it.isNotBlank() }
+
+                // Cancel previous job to prevent the thumbnail from changing multiple times on startup
+                mapFetchJob?.cancel()
+                mapFetchJob = lifecycleScope.launch {
+                    // Debounce rapid successive updates at startup
+                    kotlinx.coroutines.delay(450)
+
                     val bmp = withContext(Dispatchers.IO) {
-                        try {
-                            val request = Request.Builder().url(url).build()
-                            val response = httpClient.newCall(request).execute()
-                            if (response.isSuccessful) {
-                                response.body?.byteStream()?.let { BitmapFactory.decodeStream(it) }
-                            } else {
-                                Log.e("MapFetch", "Failed: ${response.code}")
-                                null
+                        var fetchedBmp: Bitmap? = null
+                        val sha1 = getSigningCertificateSha1()
+
+                        // 1. Try Google Static Maps with candidate keys
+                        for (key in candidateKeys) {
+                            val url = "https://maps.googleapis.com/maps/api/staticmap" +
+                                    "?center=$lat,$lon" +
+                                    "&zoom=$zoom&size=400x400&scale=2" +
+                                    "&maptype=$mapTypeParam" +
+                                    "&markers=color:red%7C$lat,$lon" +
+                                    "&key=$key"
+
+                            try {
+                                // Try plain request first (standard working key works without headers)
+                                val reqPlain = Request.Builder().url(url).build()
+                                val respPlain = httpClient.newCall(reqPlain).execute()
+                                if (respPlain.isSuccessful) {
+                                    val b = respPlain.body?.byteStream()?.let { BitmapFactory.decodeStream(it) }
+                                    if (b != null) {
+                                        fetchedBmp = b
+                                        break
+                                    }
+                                } else {
+                                    // Try with Android Package and SHA-1 cert headers
+                                    val reqAuth = Request.Builder()
+                                        .url(url)
+                                        .header("X-Android-Package", packageName)
+                                        .header("X-Android-Cert", sha1)
+                                        .build()
+                                    val respAuth = httpClient.newCall(reqAuth).execute()
+                                    if (respAuth.isSuccessful) {
+                                        val b = respAuth.body?.byteStream()?.let { BitmapFactory.decodeStream(it) }
+                                        if (b != null) {
+                                            fetchedBmp = b
+                                            break
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("MapFetch", "Error querying key $key: ${e.message}")
                             }
-                        } catch (e: Exception) {
-                            Log.e("MapFetch", "Error: ${e.message}")
-                            null
                         }
+
+                        // 2. If Google Maps static API fails, fetch real live OSM tile for the exact coordinates
+                        if (fetchedBmp == null) {
+                            fetchedBmp = fetchOsmTileBitmap(lat, lon, zoom)
+                        }
+
+                        fetchedBmp
                     }
-                    bmp?.let {
-                        lastOverlayMapThumbnail = it
-                        lastMapLat = lat
-                        lastMapLon = lon
+
+                    if (bmp != null) {
+                        isUsingFallbackThumbnail = false
+                        lastOverlayMapThumbnail = bmp
                         runOnUiThread {
-                            mapImageView.setImageBitmap(it)
+                            mapImageView.setImageBitmap(bmp)
+                            findViewById<ImageView>(R.id.liveMiniMapThumbnail)?.setImageBitmap(bmp)
                             mapImageView.invalidate()
                             mapImageView.requestLayout()
+                        }
+                    } else if (lastOverlayMapThumbnail == null) {
+                        val fallback = getFallbackMapThumbnail(currentMapType)
+                        isUsingFallbackThumbnail = true
+                        lastOverlayMapThumbnail = fallback
+                        runOnUiThread {
+                            mapImageView.setImageBitmap(fallback)
+                            findViewById<ImageView>(R.id.liveMiniMapThumbnail)?.setImageBitmap(fallback)
+                            mapImageView.invalidate()
                         }
                     }
                 }
             }
         }
+        adjustGpsOverlayPosition(displayRotation)
+    }
+
+    private fun adjustLiveTextSizes(
+        cityHeaderView: TextView,
+        addrView: TextView,
+        latLonView: TextView,
+        dateTimeView: TextView,
+        cityHeader: String,
+        address: String,
+        combinedLatLon: String,
+        datetime: String,
+        selectedTemplate: OverlayTemplate
+    ) {
+        val isLandscape = isLandscapeLayout()
+        
+        // Base sizes in SP depending on template visual real estate
+        var baseHeaderSize = if (isLandscape) 16.5f else 15.5f
+        var baseValueSize = if (isLandscape) 11.5f else 11.0f
+
+        when (selectedTemplate) {
+            OverlayTemplate.DATETIME -> {
+                baseHeaderSize = if (isLandscape) 15.5f else 14.5f
+                baseValueSize = if (isLandscape) 12.5f else 12.0f
+            }
+            OverlayTemplate.SCAN_LOCATION -> {
+                baseHeaderSize = if (isLandscape) 13.5f else 12.5f
+                baseValueSize = if (isLandscape) 10.5f else 10.0f
+            }
+            OverlayTemplate.NAVIGATION_COMPASS -> {
+                baseHeaderSize = if (isLandscape) 12.5f else 11.5f
+                baseValueSize = if (isLandscape) 10.0f else 9.5f
+            }
+            OverlayTemplate.LOCATION_WATERMARK -> {
+                baseHeaderSize = if (isLandscape) 15.5f else 14.5f
+                baseValueSize = if (isLandscape) 11.5f else 11.0f
+            }
+            else -> {
+                // Classic and Reporting
+                baseHeaderSize = if (isLandscape) 15.0f else 14.0f
+                baseValueSize = if (isLandscape) 12.0f else 11.5f
+            }
+        }
+
+        // 1. Fit Header based on length and width
+        var headerSize = baseHeaderSize
+        val headerLen = cityHeader.length
+        if (headerLen > 35) {
+            headerSize = (baseHeaderSize * 0.78f).coerceAtLeast(11.0f)
+        } else if (headerLen > 24) {
+            headerSize = (baseHeaderSize * 0.88f).coerceAtLeast(12.0f)
+        } else if (headerLen < 15) {
+            headerSize = baseHeaderSize * 1.12f
+        }
+        cityHeaderView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, headerSize)
+
+        // 2. Fit Details based on length and width
+        val latLonLen = combinedLatLon.length
+        val datetimeLen = datetime.length
+        val maxLen = maxOf(latLonLen, datetimeLen)
+
+        var detailsSize = baseValueSize
+        if (maxLen > 38) {
+            detailsSize = (baseValueSize * 0.82f).coerceAtLeast(9.0f)
+        } else if (maxLen > 28) {
+            detailsSize = (baseValueSize * 0.90f).coerceAtLeast(9.5f)
+        }
+
+        // 3. Address Length Factor
+        val addressLen = address.length
+        if (addressLen > 110) {
+            detailsSize = minOf(detailsSize, 8.8f)
+        } else if (addressLen > 80) {
+            detailsSize = minOf(detailsSize, 9.8f)
+        } else if (addressLen < 40 && maxLen < 25) {
+            detailsSize = baseValueSize * 1.12f
+        }
+
+        addrView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, detailsSize)
+        latLonView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, detailsSize)
+        dateTimeView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, detailsSize)
+
+        // 4. Reduce Line Gap dynamically
+        addrView.setLineSpacing(0f, 0.92f) // Tighten line height for address to prevent empty gaps
+    }
+
+    private fun getFallbackMapThumbnail(mapType: MapType): Bitmap {
+        val width = 400
+        val height = 400
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val drawable = ContextCompat.getDrawable(this, R.drawable.sample_map_thumb)
+        drawable?.let {
+            it.setBounds(0, 0, width, height)
+            it.draw(canvas)
+        }
+
+        // Draw red pin marker
+        val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.RED
+            style = Paint.Style.FILL
+            setShadowLayer(4f, 0f, 2f, Color.parseColor("#80000000"))
+        }
+        val centerPinX = width / 2f
+        val centerPinY = height / 2f - 10f
+        canvas.drawCircle(centerPinX, centerPinY, 14f, pinPaint)
+
+        val innerPinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(centerPinX, centerPinY, 6f, innerPinPaint)
+
+        val tipPath = Path().apply {
+            moveTo(centerPinX - 10f, centerPinY + 8f)
+            lineTo(centerPinX + 10f, centerPinY + 8f)
+            lineTo(centerPinX, centerPinY + 28f)
+            close()
+        }
+        canvas.drawPath(tipPath, pinPaint)
+
+        // Draw "Google" or map tag
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 20f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setShadowLayer(3f, 1f, 1f, Color.BLACK)
+        }
+        canvas.drawText("Google", 16f, height - 16f, labelPaint)
+
+        return bitmap
+    }
+
+    private fun getSigningCertificateSha1(): String {
+        try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            }
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+            if (signatures != null && signatures.isNotEmpty()) {
+                val md = java.security.MessageDigest.getInstance("SHA-1")
+                val publicKey = md.digest(signatures[0].toByteArray())
+                val hexString = StringBuilder()
+                for (i in publicKey.indices) {
+                    val appendString = Integer.toHexString(0xFF and publicKey[i].toInt()).uppercase(java.util.Locale.US)
+                    if (appendString.length == 1) hexString.append("0")
+                    hexString.append(appendString)
+                    if (i < publicKey.size - 1) {
+                        hexString.append(":")
+                    }
+                }
+                return hexString.toString()
+            }
+        } catch (e: Exception) {
+            Log.e("Signature", "Failed to get SHA-1: ${e.message}")
+        }
+        return "2E:6F:5E:85:CE:DC:39:C2:BA:3C:26:F5:5E:46:72:37:61:BC:1C:34"
+    }
+
+    private fun fetchOsmTileBitmap(lat: Double, lon: Double, zoom: Int): Bitmap? {
+        try {
+            val z = zoom.coerceIn(1, 18)
+            val n = 1 shl z
+            val x = ((lon + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
+            val latRad = Math.toRadians(lat)
+            val y = ((1.0 - kotlin.math.ln(kotlin.math.tan(latRad) + 1.0 / kotlin.math.cos(latRad)) / Math.PI) / 2.0 * n).toInt().coerceIn(0, n - 1)
+            val tileUrl = "https://tile.openstreetmap.org/$z/$x/$y.png"
+            val request = Request.Builder()
+                .url(tileUrl)
+                .header("User-Agent", "GPSMapCamera/1.0 (Android; Location Overlay)")
+                .build()
+            val response = httpClient.newCall(request).execute()
+            if (response.isSuccessful) {
+                val rawTile = response.body?.byteStream()?.let { BitmapFactory.decodeStream(it) }
+                if (rawTile != null) {
+                    val result = Bitmap.createScaledBitmap(rawTile, 400, 400, true)
+                    val canvas = Canvas(result)
+                    drawPinOnMap(canvas, 400, 400)
+                    return result
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MapFetch", "OSM tile fetch failed: ${e.message}")
+        }
+        return null
+    }
+
+    private fun drawPinOnMap(canvas: Canvas, width: Int, height: Int) {
+        val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.RED
+            style = Paint.Style.FILL
+            setShadowLayer(4f, 0f, 2f, Color.parseColor("#80000000"))
+        }
+        val centerPinX = width / 2f
+        val centerPinY = height / 2f - 10f
+        canvas.drawCircle(centerPinX, centerPinY, 14f, pinPaint)
+
+        val innerPinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(centerPinX, centerPinY, 6f, innerPinPaint)
+
+        val tipPath = Path().apply {
+            moveTo(centerPinX - 10f, centerPinY + 8f)
+            lineTo(centerPinX + 10f, centerPinY + 8f)
+            lineTo(centerPinX, centerPinY + 28f)
+            close()
+        }
+        canvas.drawPath(tipPath, pinPaint)
     }
 
     private fun capturePhoto() {
+        if (cameraTimerSetting > 0 && !isTimerCountingDown) {
+            startCountdownAndCapture()
+            return
+        }
+        if (isTimerCountingDown) {
+            cancelCountdown()
+            return
+        }
+        capturePhotoActual()
+    }
+
+    private fun capturePhotoActual() {
+        playShutterSound()
+
         val fileName = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
         val shutterLat = currentLocation?.latitude
         val shutterLon = currentLocation?.longitude
@@ -824,6 +1635,9 @@ class MainActivity : AppCompatActivity() {
 
         val file = File(cacheDir, "$fileName.jpg")
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
+
+        val captureRotation = if (displayRotation != Surface.ROTATION_0) displayRotation else getDisplayRotation()
+        imageCapture.targetRotation = captureRotation
 
         imageCapture.takePicture(
             output, ContextCompat.getMainExecutor(this),
@@ -851,9 +1665,55 @@ class MainActivity : AppCompatActivity() {
                         matrix,
                         true
                     )
-                    // Mirror handling: User requested "captured as Mirror image" for front camera.
-                    // To match the preview look (Selfie), we HORIZONTALLY flip the image.
-                    if (!isBackCamera) {
+
+                    val isLandscape = isCurrentLandscape()
+
+                    // Ensure bitmap orientation matches physical capture mode:
+                    // If device was held in landscape, the captured photo MUST be landscape (width >= height).
+                    // If camera/driver produced a portrait bitmap or EXIF was missing/stripped, rotate it to landscape!
+                    if (isLandscape && rotatedBitmap.width < rotatedBitmap.height) {
+                        val fixAngle = if (displayRotation == Surface.ROTATION_270) 90f else 270f
+                        val fixMatrix = Matrix().apply { postRotate(fixAngle) }
+                        rotatedBitmap = Bitmap.createBitmap(
+                            rotatedBitmap,
+                            0,
+                            0,
+                            rotatedBitmap.width,
+                            rotatedBitmap.height,
+                            fixMatrix,
+                            true
+                        )
+                    } else if (!isLandscape && rotatedBitmap.width > rotatedBitmap.height) {
+                        // If device was held in portrait, ensure portrait orientation
+                        val fixMatrix = Matrix().apply { postRotate(90f) }
+                        rotatedBitmap = Bitmap.createBitmap(
+                            rotatedBitmap,
+                            0,
+                            0,
+                            rotatedBitmap.width,
+                            rotatedBitmap.height,
+                            fixMatrix,
+                            true
+                        )
+                    }
+
+                    // Aspect ratio 1:1 square crop handling
+                    if (cameraRatioSetting == "1:1") {
+                        val minSide = Math.min(rotatedBitmap.width, rotatedBitmap.height)
+                        val xOffset = (rotatedBitmap.width - minSide) / 2
+                        val yOffset = (rotatedBitmap.height - minSide) / 2
+                        rotatedBitmap = Bitmap.createBitmap(
+                            rotatedBitmap,
+                            xOffset,
+                            yOffset,
+                            minSide,
+                            minSide
+                        )
+                    }
+
+                    // Mirror handling: selfie horizontal flip
+                    val shouldMirror = !isBackCamera && cameraMirrorSetting
+                    if (shouldMirror) {
                         val flipMatrix = Matrix().apply { preScale(-1f, 1f) }
                         rotatedBitmap = Bitmap.createBitmap(
                             rotatedBitmap,
@@ -872,11 +1732,15 @@ class MainActivity : AppCompatActivity() {
                     val latText = if (shutterLat != null) "Lat: %.5f".format(shutterLat) else "Lat: --"
                     val lonText = if (shutterLon != null) "Lon: %.5f".format(shutterLon) else "Lon: --"
                     val addrText = shutterAddr
-                    val dateTimeText = findViewById<TextView>(R.id.geo_datetime)?.text?.toString() ?: SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
+                    val dateTimeText = findViewById<TextView>(R.id.geo_datetime)?.text?.toString() ?: SimpleDateFormat("EEEE, dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
 
                     // Apply GPS overlay using on-screen values
-                    val isLandscape = isLandscapeLayout()
                     gpsOverlayRenderer.layoutMode = if (isLandscape) GpsOverlayRenderer.LayoutMode.VERTICAL else GpsOverlayRenderer.LayoutMode.HORIZONTAL
+                    gpsOverlayRenderer.currentAzimuth = currentDeviceAzimuth
+                    gpsOverlayRenderer.currentAltitude = shutterLat?.let { currentLocation?.altitude } ?: 15.0
+                    gpsOverlayRenderer.currentMagneticField = currentDeviceMagneticField
+                    gpsOverlayRenderer.isBackCamera = isBackCamera
+                    gpsOverlayRenderer.showCameraStamp = cameraStampSetting
                     val overlaidBitmap = gpsOverlayRenderer.drawGpsOverlay(
                         rotatedBitmap,
                         mapThumbnail,
@@ -895,9 +1759,6 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         // Only save to gallery and return to live camera
                         saveImageToGallery(overlaidBitmap, fileName, shutterGpsText)
-                        runOnUiThread {
-                            initCameraAndListeners()
-                        }
                     }
                     // Clean up the temporary file
                     file.delete()
@@ -1116,49 +1977,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-        // 2. Create and save the PDF document
-        val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val pdfDir = File(docsDir, "GPS Cam Visit Pro")
-        if (!pdfDir.exists()) {
-            pdfDir.mkdirs()
-        }
-        val pdfFile = File(pdfDir, "$fileName.pdf")
-
-        // Retrieve the latest overlay info for the PDF.
-        // This should be consistent with what was stamped on the bitmap as it's fetched right after.
-        val mapThumbView = findViewById<ImageView>(R.id.liveMapThumbnail)
-        val mapThumbnail = (mapThumbView?.drawable as? BitmapDrawable)?.bitmap
-        val latText = lastOverlayLatText.ifBlank { "Lat: --" }
-        val lonText = lastOverlayLonText.ifBlank { "Lon: --" }
-        val addrText = findViewById<TextView>(R.id.geo_address)?.text?.toString() ?: "Address unavailable"
-        val dateTimeText = findViewById<TextView>(R.id.geo_datetime)?.text?.toString() ?: SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault()).format(Date())
-
-        gpsOverlayRenderer.createPdfWithOverlay(
-            bitmap, // Use the (singly) overlaid bitmap
-            pdfFile,
-            mapThumbnail,
-            latText,
-            lonText,
-            addrText,
-            dateTimeText
-        )
-
-        // Notify MediaScanner to scan the newly created PDF file so it appears instantly in File Manager / Recent files
-        android.media.MediaScannerConnection.scanFile(
-            this,
-            arrayOf(pdfFile.absolutePath),
-            arrayOf("application/pdf")
-        ) { path, uri ->
-            Log.d("MainActivity", "PDF registered with MediaScanner: $path -> $uri")
-        }
     }
 
     private fun fetchAddress(location: Location) {
         lifecycleScope.launch {
             try {
                 val addressList = withContext(Dispatchers.IO) {
-                    Geocoder(this@MainActivity, Locale.getDefault())
+                    val langLocale = AppLanguage.getSelectedLanguage(this@MainActivity).locale
+                    Geocoder(this@MainActivity, langLocale)
                         .getFromLocation(location.latitude, location.longitude, 1)
                 }
                 if (!addressList.isNullOrEmpty()) {
@@ -1171,7 +1997,7 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             addr.subLocality ?: addr.locality ?: addr.subAdminArea
                         }
-                    address = lines.joinToString("\n")
+                    address = lines.joinToString(", ").replace(Regex(",\\s*,"), ",").replace(Regex("\\s+"), " ").trim()
                     // Update overlay after address is set
                     updateLiveOverlay()
                 } else {
@@ -1214,11 +2040,16 @@ class MainActivity : AppCompatActivity() {
                         val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
                         val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                         
-                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            contentResolver.loadThumbnail(uri, Size(128, 128), null)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            MediaStore.Images.Thumbnails.getThumbnail(contentResolver, id, MediaStore.Images.Thumbnails.MINI_KIND, null)
+                        val bitmap = try {
+                            contentResolver.openInputStream(uri)?.use { stream ->
+                                val options = BitmapFactory.Options().apply {
+                                    inSampleSize = 8
+                                }
+                                BitmapFactory.decodeStream(stream, null, options)
+                            }
+                        } catch (e: Exception) {
+                            Log.w("Gallery", "Could not decode thumbnail: ${e.message}")
+                            null
                         }
                         
                         lastSavedImageUri = uri
@@ -1237,8 +2068,8 @@ class MainActivity : AppCompatActivity() {
 
     @androidx.annotation.OptIn(UnstableApi::class)
     private fun startVideoRecording() {
-        if (!::videoCapture.isInitialized) {
-            Toast.makeText(this, "Video capture not initialized", Toast.LENGTH_SHORT).show()
+        if (!isVideoSupported || !::videoCapture.isInitialized) {
+            Toast.makeText(this, "Video recording is disabled on virtual emulator devices. Photo capture with GPS overlay is fully supported.", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -1250,7 +2081,7 @@ class MainActivity : AppCompatActivity() {
             recording = videoCapture.output
                 .prepareRecording(this, fileOutputOptions)
                 .apply {
-                    if (ContextCompat.checkSelfPermission(
+                    if (cameraVoiceSetting && ContextCompat.checkSelfPermission(
                             this@MainActivity,
                             Manifest.permission.RECORD_AUDIO
                         ) == PackageManager.PERMISSION_GRANTED
@@ -1535,25 +2366,36 @@ class MainActivity : AppCompatActivity() {
         val orientationStr = if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "LANDSCAPE" else "PORTRAIT"
         Log.d("MainActivity", "initCameraAndListeners called - Orientation: $orientationStr")
 
-        // Only set content view if we're coming from intro video (not from orientation change)
-        // Check if the current content view is the intro layout
-        val introView = findViewById<VideoView>(R.id.introVideoView)
-        if (introView != null) {
-            // We're coming from intro, need to set the main layout
-            Log.d("MainActivity", "Detected intro view, setting main layout for orientation: $orientationStr")
-            setContentView(R.layout.activity_main)
-        } else {
-            Log.d("MainActivity", "No intro view detected, using existing layout")
-        }
-        // Otherwise, the layout is already set correctly by onCreate()
-
+        // Layout is already set to activity_main
         hideSystemUI()
+
+        @Suppress("DEPRECATION")
+        window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
+            if ((visibility and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                window.decorView.postDelayed({
+                    hideSystemUI()
+                }, 2500)
+            }
+        }
 
         Log.d("MainActivity", "Finding viewFinder...")
         previewView = findViewById(R.id.viewFinder)
         Log.d("MainActivity", "viewFinder found: ${previewView != null}")
-        previewView.implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         captureButton = findViewById(R.id.camera_capture_button)
+
+        // Apply loaded settings to overlay views
+        findViewById<com.amod.geotagcamera.ui.CameraGridView>(R.id.cameraGridView)?.let { gridView ->
+            gridView.setGridMode(cameraGridSetting)
+            gridView.setLevelEnabled(cameraLevelSetting)
+            gridView.ratioSetting = cameraRatioSetting
+        }
+        val initialNoteConfig = CustomNoteConfig.load(this)
+        cameraTextSetting = initialNoteConfig.text
+        gpsOverlayRenderer.customNote = initialNoteConfig.text.ifBlank { null }
+        gpsOverlayRenderer.customNoteConfig = initialNoteConfig
+        updateLiveCustomNoteView(initialNoteConfig)
+
         findViewById<ImageButton>(R.id.switch_camera_button).setOnClickListener {
             isBackCamera = !isBackCamera
             startCamera()
@@ -1561,6 +2403,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.camera_capture_button).setOnClickListener { capturePhoto() }
         // Video recording button
         findViewById<ImageButton>(R.id.video_record_button)?.setOnClickListener {
+            if (!isVideoSupported || !::videoCapture.isInitialized) {
+                Toast.makeText(this, "Video recording is disabled on virtual emulator devices. Photo capture with GPS overlay is fully supported.", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             if (!isRecording) {
                 startVideoRecording()
             } else {
@@ -1615,11 +2461,57 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.prepare_button)?.setOnClickListener {
             openGallery()
         }
+        // GPS Lookup / Scanner button
+        findViewById<ImageButton>(R.id.gpsLookupButton)?.setOnClickListener {
+            val intent = Intent(this, com.amod.geotagcamera.ui.GpsLookupActivity::class.java)
+            startActivity(intent)
+        }
+        // Timeline Button
+        findViewById<ImageButton>(R.id.timelineButton)?.setOnClickListener {
+            val intent = Intent(this, com.amod.geotagcamera.ui.TimelineActivity::class.java)
+            startActivity(intent)
+        }
         // Settings button
         findViewById<ImageButton>(R.id.settingsButton)?.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
+        // Template Selection button
+        findViewById<ImageButton>(R.id.templateButton)?.setOnClickListener {
+            val intent = Intent(this, TemplateSelectionActivity::class.java)
+            startActivity(intent)
+        }
+        // Quick Options button
+        findViewById<ImageButton>(R.id.quickOptionsButton)?.setOnClickListener {
+            showCameraOptionsDialog()
+        }
+
+        // Dynamically adjust top button margins so they never coincide with notification panel
+        val mainRoot = findViewById<View>(R.id.rootContainer)
+        if (mainRoot != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(mainRoot) { _, insets ->
+                val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+                val safeTop = if (statusBarHeight > 0) statusBarHeight + dp(12) else dp(52)
+
+                listOf(
+                    findViewById<View>(R.id.quickOptionsButton),
+                    findViewById<View>(R.id.gpsLookupButton),
+                    findViewById<View>(R.id.timelineButton),
+                    findViewById<View>(R.id.templateButton),
+                    findViewById<View>(R.id.settingsButton)
+                ).forEach { btn ->
+                    val lp = btn?.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+                    if (lp != null && lp.topMargin != safeTop) {
+                        lp.topMargin = safeTop
+                        btn.layoutParams = lp
+                    }
+                }
+                insets
+            }
+        }
+        // Instagram-style Custom Note interactive sticker setup
+        setupLiveCustomNoteSticker()
+
         // Collage button
         findViewById<ImageButton>(R.id.collage_button)?.setOnClickListener {
             openCollagePhotoPicker()
@@ -1628,9 +2520,12 @@ class MainActivity : AppCompatActivity() {
         // Zoom buttons setup
         setupZoomButtons()
 
-        requestPermissions()
-        startCamera()
-        getLocation()
+        if (hasCriticalPermissions()) {
+            startCamera()
+            getLocation()
+        } else {
+            requestPermissions()
+        }
         
         // Start live UI update loop (safely)
         handler.removeCallbacks(updateRunnable)
@@ -1669,18 +2564,48 @@ class MainActivity : AppCompatActivity() {
         }
     
         zoom06Btn.setOnClickListener {
+            val previousRatio = currentZoomRatio
             currentZoomRatio = 0.6f
-            cameraControl?.setZoomRatio(0.6f)
+            if (previousRatio != 0.6f) {
+                // Switch physical camera to ultra-wide
+                startCamera()
+            } else {
+                try {
+                    cameraControl?.setZoomRatio(1.0f)
+                } catch (e: Exception) {
+                    Log.e("Zoom", "Failed setting zoom: ${e.message}")
+                }
+            }
             updateZoomUI()
         }
         zoom1xBtn.setOnClickListener {
+            val previousRatio = currentZoomRatio
             currentZoomRatio = 1.0f
-            cameraControl?.setZoomRatio(1.0f)
+            if (previousRatio == 0.6f) {
+                // Switch physical camera back to standard
+                startCamera()
+            } else {
+                try {
+                    cameraControl?.setZoomRatio(1.0f)
+                } catch (e: Exception) {
+                    Log.e("Zoom", "Failed setting zoom: ${e.message}")
+                }
+            }
             updateZoomUI()
         }
         zoom2xBtn.setOnClickListener {
+            val previousRatio = currentZoomRatio
             currentZoomRatio = 2.0f
-            cameraControl?.setZoomRatio(2.0f)
+            if (previousRatio == 0.6f) {
+                // Switch physical camera back to standard
+                startCamera()
+            } else {
+                try {
+                    cameraControl?.setZoomRatio(2.0f)
+                } catch (e: Exception) {
+                    Log.e("Zoom", "Failed setting zoom: ${e.message}")
+                }
+            }
             updateZoomUI()
         }
     
@@ -1716,7 +2641,8 @@ class MainActivity : AppCompatActivity() {
                                     val lon = latLong[1].toDouble()
                                     var addressText = ""
                                     try {
-                                        val addressList = Geocoder(this@MainActivity, Locale.getDefault())
+                                        val langLocale = AppLanguage.getSelectedLanguage(this@MainActivity).locale
+                                        val addressList = Geocoder(this@MainActivity, langLocale)
                                             .getFromLocation(lat, lon, 1)
                                         if (!addressList.isNullOrEmpty()) {
                                             val addr = addressList[0]
@@ -1844,21 +2770,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isLandscapeRotation(rotation: Int): Boolean {
-        return rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270
-    }
-
-    private fun isLandscapeLayout(): Boolean {
-        val rotation = if (::previewView.isInitialized) {
-            previewView.display?.rotation ?: displayRotation
-        } else {
-            displayRotation
-        }
-        val rotationLandscape = isLandscapeRotation(rotation)
-        val configLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        return rotationLandscape || configLandscape
-    }
-
     private fun saveBitmapWithExif(bitmap: Bitmap, file: File, location: Location?, gpsInfo: String? = null) {
         FileOutputStream(file).use { out ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
@@ -1981,6 +2892,883 @@ class MainActivity : AppCompatActivity() {
             showOfflineDialog()
         } else {
             initCameraAndListeners()
+        }
+    }
+
+    private fun isEmulator(): Boolean {
+        if (Build.SUPPORTED_ABIS.any { it.contains("x86") }) {
+            return true
+        }
+
+        val brand = Build.BRAND.lowercase(Locale.US)
+        val device = Build.DEVICE.lowercase(Locale.US)
+        val fingerprint = Build.FINGERPRINT.lowercase(Locale.US)
+        val hardware = Build.HARDWARE.lowercase(Locale.US)
+        val model = Build.MODEL.lowercase(Locale.US)
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.US)
+        val product = Build.PRODUCT.lowercase(Locale.US)
+        val board = Build.BOARD.lowercase(Locale.US)
+        val bootloader = Build.BOOTLOADER.lowercase(Locale.US)
+        val host = Build.HOST.lowercase(Locale.US)
+        val tags = Build.TAGS.lowercase(Locale.US)
+
+        return (brand.startsWith("generic") && device.startsWith("generic"))
+                || brand.startsWith("generic")
+                || (brand.contains("google") && (model.contains("sdk") || product.contains("sdk")))
+                || device.startsWith("generic")
+                || device.contains("vsoc")
+                || device.contains("cutf")
+                || device.contains("cuttlefish")
+                || device.contains("emulator")
+                || device.contains("x86")
+                || fingerprint.startsWith("generic")
+                || fingerprint.startsWith("unknown")
+                || fingerprint.contains("test-keys")
+                || fingerprint.contains("cuttlefish")
+                || fingerprint.contains("cutf")
+                || fingerprint.contains("vbox")
+                || fingerprint.contains("sdk")
+                || hardware.contains("goldfish")
+                || hardware.contains("ranchu")
+                || hardware.contains("cutf")
+                || hardware.contains("cuttlefish")
+                || hardware.contains("qemu")
+                || hardware.contains("virtual")
+                || hardware.contains("x86")
+                || model.contains("google_sdk")
+                || model.contains("emulator")
+                || model.contains("android sdk built for")
+                || model.contains("cuttlefish")
+                || model.contains("cvd")
+                || model.contains("virtual")
+                || model.contains("sdk")
+                || model.contains("gphone")
+                || manufacturer.contains("genymotion")
+                || (manufacturer.contains("google") && (model.contains("sdk") || device.contains("vsoc") || product.contains("cf_") || product.contains("sdk")))
+                || product.contains("sdk_google")
+                || product.contains("google_sdk")
+                || product.contains("sdk")
+                || product.contains("sdk_x86")
+                || product.contains("vbox86p")
+                || product.contains("emulator")
+                || product.contains("simulator")
+                || product.contains("cuttlefish")
+                || product.contains("cutf")
+                || product.contains("cf_")
+                || product.contains("aosp")
+                || board.contains("cutf")
+                || board.contains("vsoc")
+                || board.contains("goldfish")
+                || board.contains("ranchu")
+                || bootloader.contains("qemu")
+                || host.contains("android-build")
+                || tags.contains("test-keys")
+                || try { File("/dev/qemu_pipe").exists() } catch (_: Exception) { false }
+                || try { File("/dev/goldfish_pipe").exists() } catch (_: Exception) { false }
+                || try { File("/dev/socket/qemud").exists() } catch (_: Exception) { false }
+    }
+
+    private fun startCountdownAndCapture() {
+        isTimerCountingDown = true
+        val countdownText = findViewById<TextView>(R.id.countdownTextView)
+        countdownText?.text = cameraTimerSetting.toString()
+        countdownText?.visibility = View.VISIBLE
+        
+        countDownTimer = object : android.os.CountDownTimer((cameraTimerSetting * 1000).toLong(), 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsRemaining = (millisUntilFinished / 1000 + 1).toInt()
+                countdownText?.text = secondsRemaining.toString()
+                if (cameraSoundSetting) {
+                    playTimerBeep()
+                }
+            }
+
+            override fun onFinish() {
+                isTimerCountingDown = false
+                countdownText?.visibility = View.GONE
+                capturePhotoActual()
+            }
+        }.start()
+    }
+
+    private fun cancelCountdown() {
+        countDownTimer?.cancel()
+        countDownTimer = null
+        isTimerCountingDown = false
+        val countdownText = findViewById<TextView>(R.id.countdownTextView)
+        countdownText?.visibility = View.GONE
+        Toast.makeText(this, "Timer cancelled", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showCameraOptionsDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_camera_options, null)
+        val builder = AlertDialog.Builder(this)
+            .setView(dialogView)
+        val dialog = builder.create()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        
+        // Initial refresh
+        refreshCameraOptionsUI(dialogView)
+
+        val sharedPrefs = getSharedPreferences("com.amod.geotagcamera.PREFERENCES", Context.MODE_PRIVATE)
+        val editor = sharedPrefs.edit()
+
+        // 1. Ratio Click Listener
+        dialogView.findViewById<View>(R.id.card_ratio)?.setOnClickListener {
+            cameraRatioSetting = when (cameraRatioSetting) {
+                "4:3" -> "16:9"
+                "16:9" -> "1:1"
+                else -> "4:3"
+            }
+            editor.putString("camera_ratio", cameraRatioSetting).apply()
+            
+            // Apply immediately to viewfinder and startCamera
+            findViewById<com.amod.geotagcamera.ui.CameraGridView>(R.id.cameraGridView)?.let { gridView ->
+                gridView.ratioSetting = cameraRatioSetting
+                gridView.invalidate()
+            }
+            startCamera()
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 2. Grid Click Listener
+        dialogView.findViewById<View>(R.id.card_grid)?.setOnClickListener {
+            cameraGridSetting = when (cameraGridSetting) {
+                "OFF" -> "3X3"
+                "3X3" -> "PHI"
+                else -> "OFF"
+            }
+            editor.putString("camera_grid", cameraGridSetting).apply()
+            
+            findViewById<com.amod.geotagcamera.ui.CameraGridView>(R.id.cameraGridView)?.setGridMode(cameraGridSetting)
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 3. Timer Click Listener
+        dialogView.findViewById<View>(R.id.card_timer)?.setOnClickListener {
+            cameraTimerSetting = when (cameraTimerSetting) {
+                0 -> 3
+                3 -> 5
+                5 -> 10
+                else -> 0
+            }
+            editor.putInt("camera_timer", cameraTimerSetting).apply()
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 4. Focus Click Listener
+        dialogView.findViewById<View>(R.id.card_focus)?.setOnClickListener {
+            cameraFocusSetting = when (cameraFocusSetting) {
+                "AUTO" -> "MANUAL"
+                else -> "AUTO"
+            }
+            editor.putString("camera_focus", cameraFocusSetting).apply()
+            
+            // Camera focus adjustment
+            if (cameraFocusSetting == "AUTO") {
+                cameraControl?.cancelFocusAndMetering()
+            } else {
+                // Focus manually locked on center point
+                try {
+                    val factory = previewView.meteringPointFactory
+                    val point = factory.createPoint(0.5f, 0.5f)
+                    val action = androidx.camera.core.FocusMeteringAction.Builder(point).build()
+                    cameraControl?.startFocusAndMetering(action)
+                } catch (e: Exception) {
+                    Log.e("Camera", "Failed to lock focus: ${e.message}")
+                }
+            }
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 5. Mirror Click Listener
+        dialogView.findViewById<View>(R.id.card_mirror)?.setOnClickListener {
+            cameraMirrorSetting = !cameraMirrorSetting
+            editor.putBoolean("camera_mirror", cameraMirrorSetting).apply()
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 6. Sound Click Listener
+        dialogView.findViewById<View>(R.id.card_sound)?.setOnClickListener {
+            cameraSoundSetting = !cameraSoundSetting
+            editor.putBoolean("camera_sound", cameraSoundSetting).apply()
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 7. White Balance Click Listener
+        dialogView.findViewById<View>(R.id.card_wb)?.setOnClickListener {
+            cameraWbSetting = when (cameraWbSetting) {
+                "AUTO" -> "SUNNY"
+                "SUNNY" -> "CLOUDY"
+                "CLOUDY" -> "INCANDESCENT"
+                "INCANDESCENT" -> "FLUORESCENT"
+                else -> "AUTO"
+            }
+            editor.putString("camera_wb", cameraWbSetting).apply()
+            
+            // Apply control options to camera
+            try {
+                cameraControl?.let { ctrl ->
+                    val c2ctrl = androidx.camera.camera2.interop.Camera2CameraControl.from(ctrl)
+                    val reqOpts = androidx.camera.camera2.interop.CaptureRequestOptions.Builder()
+                        .setCaptureRequestOption(android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE, when (cameraWbSetting) {
+                            "SUNNY" -> android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT
+                            "CLOUDY" -> android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT
+                            "INCANDESCENT" -> android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT
+                            "FLUORESCENT" -> android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT
+                            else -> android.hardware.camera2.CaptureRequest.CONTROL_AWB_MODE_AUTO
+                        })
+                        .build()
+                    c2ctrl.setCaptureRequestOptions(reqOpts)
+                }
+            } catch (e: Exception) {
+                Log.e("Camera", "Failed setting AWB mode: ${e.message}")
+            }
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 8. Level Click Listener
+        dialogView.findViewById<View>(R.id.card_level)?.setOnClickListener {
+            cameraLevelSetting = !cameraLevelSetting
+            editor.putBoolean("camera_level", cameraLevelSetting).apply()
+            
+            // Register or unregister sensor event listener
+            findViewById<com.amod.geotagcamera.ui.CameraGridView>(R.id.cameraGridView)?.setLevelEnabled(cameraLevelSetting)
+            if (cameraLevelSetting) {
+                if (sensorManager == null) {
+                    sensorManager = getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+                    accelerometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+                }
+                sensorManager?.registerListener(sensorListener, accelerometer, android.hardware.SensorManager.SENSOR_DELAY_UI)
+            } else {
+                sensorManager?.unregisterListener(sensorListener)
+            }
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 9. Add Text (Instagram Style Custom Note) Listener
+        dialogView.findViewById<View>(R.id.card_addtext)?.setOnClickListener {
+            dialog.dismiss()
+            openInstagramTextEditor()
+        }
+
+        // 10. Voice Record Click Listener (Microphone setup)
+        dialogView.findViewById<View>(R.id.card_voice)?.setOnClickListener {
+            cameraVoiceSetting = !cameraVoiceSetting
+            editor.putBoolean("camera_voice", cameraVoiceSetting).apply()
+            refreshCameraOptionsUI(dialogView)
+        }
+
+        // 11. Flash Light Click Listener (Auto -> On -> Off -> Auto)
+        dialogView.findViewById<View>(R.id.card_flash)?.setOnClickListener {
+            cameraFlashSetting = when (cameraFlashSetting) {
+                "Auto" -> "On"
+                "On" -> "Off"
+                else -> "Auto"
+            }
+            editor.putString("camera_flash", cameraFlashSetting).apply()
+            applyFlashSetting()
+            refreshCameraOptionsUI(dialogView)
+            Toast.makeText(this, "Flash: $cameraFlashSetting", Toast.LENGTH_SHORT).show()
+        }
+
+        // 12. Camera Lens Click Listener (Rear <-> Front)
+        dialogView.findViewById<View>(R.id.card_lens)?.setOnClickListener {
+            isBackCamera = !isBackCamera
+            startCamera()
+            updateLiveOverlay()
+            refreshCameraOptionsUI(dialogView)
+            val lensName = if (isBackCamera) "Rear Camera" else "Front Camera"
+            Toast.makeText(this, "Switched to $lensName", Toast.LENGTH_SHORT).show()
+        }
+
+        // 13. Camera Stamp Click Listener (Front or Rear Camera Stamp on Overlay)
+        dialogView.findViewById<View>(R.id.card_stamp)?.setOnClickListener {
+            cameraStampSetting = !cameraStampSetting
+            editor.putBoolean("camera_stamp", cameraStampSetting).apply()
+            gpsOverlayRenderer.showCameraStamp = cameraStampSetting
+            updateLiveOverlay()
+            refreshCameraOptionsUI(dialogView)
+            val state = if (cameraStampSetting) "Stamp Enabled" else "Stamp Disabled"
+            Toast.makeText(this, "Camera Stamp: $state", Toast.LENGTH_SHORT).show()
+        }
+
+        // 14. Telemetry Click Listener (Altitude & Azimuth bearing on Overlay)
+        dialogView.findViewById<View>(R.id.card_telemetry)?.setOnClickListener {
+            cameraTelemetrySetting = !cameraTelemetrySetting
+            editor.putBoolean("camera_telemetry", cameraTelemetrySetting).apply()
+            updateLiveOverlay()
+            refreshCameraOptionsUI(dialogView)
+            val state = if (cameraTelemetrySetting) "Telemetry Enabled" else "Telemetry Disabled"
+            Toast.makeText(this, "Telemetry: $state", Toast.LENGTH_SHORT).show()
+        }
+
+        // 15. Time Format Click Listener (12H <-> 24H)
+        dialogView.findViewById<View>(R.id.card_time_format)?.setOnClickListener {
+            cameraTimeFormatSetting = if (cameraTimeFormatSetting == "12H") "24H" else "12H"
+            editor.putString("camera_time_format", cameraTimeFormatSetting).apply()
+            updateLiveOverlay()
+            refreshCameraOptionsUI(dialogView)
+            Toast.makeText(this, "Time Format: $cameraTimeFormatSetting", Toast.LENGTH_SHORT).show()
+        }
+
+        // Close button listener
+        dialogView.findViewById<View>(R.id.btn_close_options)?.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.setOnDismissListener {
+            hideSystemUI()
+        }
+
+        dialog.show()
+
+        // Position horizontally across the top of the screen in rectangular form
+        dialog.window?.let { window ->
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            window.setGravity(android.view.Gravity.TOP)
+            window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+            val lp = window.attributes
+            lp.width = android.view.WindowManager.LayoutParams.MATCH_PARENT
+            lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            lp.gravity = android.view.Gravity.TOP
+            lp.x = 0
+            lp.y = 0
+            
+            // Modern background blur support for API 31+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                lp.blurBehindRadius = 40
+            }
+            
+            window.attributes = lp
+            window.setWindowAnimations(R.style.TopDialogAnimation)
+            window.setDimAmount(0.35f)
+        }
+    }
+
+    private fun setOptionState(view: View, iconId: Int, valId: Int, text: String, isActive: Boolean) {
+        val iconView = view.findViewById<ImageView>(iconId)
+        val textView = view.findViewById<TextView>(valId)
+        
+        textView?.text = text
+        
+        val color = if (isActive) Color.parseColor("#FFC107") else Color.parseColor("#FFFFFF")
+        textView?.setTextColor(color)
+        iconView?.imageTintList = android.content.res.ColorStateList.valueOf(color)
+    }
+
+    private fun refreshCameraOptionsUI(view: View) {
+        // 1. Ratio
+        setOptionState(
+            view, 
+            R.id.icon_ratio, 
+            R.id.val_ratio, 
+            "Ratio $cameraRatioSetting", 
+            cameraRatioSetting != "4:3"
+        )
+
+        // 2. Grid
+        setOptionState(
+            view, 
+            R.id.icon_grid, 
+            R.id.val_grid, 
+            "Grid ${if (cameraGridSetting == "OFF") "Off" else cameraGridSetting}", 
+            cameraGridSetting != "OFF"
+        )
+
+        // 3. Timer
+        setOptionState(
+            view, 
+            R.id.icon_timer, 
+            R.id.val_timer, 
+            "Timer ${if (cameraTimerSetting == 0) "Off" else "${cameraTimerSetting}s"}", 
+            cameraTimerSetting != 0
+        )
+
+        // 4. Focus
+        setOptionState(
+            view, 
+            R.id.icon_focus, 
+            R.id.val_focus, 
+            "Focus ${if (cameraFocusSetting == "AUTO") "Auto" else "Manual"}", 
+            cameraFocusSetting != "AUTO"
+        )
+
+        // 5. Mirror
+        setOptionState(
+            view, 
+            R.id.icon_mirror, 
+            R.id.val_mirror, 
+            "Mirror ${if (cameraMirrorSetting) "On" else "Off"}", 
+            cameraMirrorSetting
+        )
+
+        // 6. Sound
+        setOptionState(
+            view, 
+            R.id.icon_sound, 
+            R.id.val_sound, 
+            "Sound ${if (cameraSoundSetting) "On" else "Off"}", 
+            cameraSoundSetting
+        )
+
+        // 7. White Balance
+        setOptionState(
+            view, 
+            R.id.icon_wb, 
+            R.id.val_wb, 
+            if (cameraWbSetting == "AUTO") "White Balance" else "WB ${cameraWbSetting.lowercase(Locale.US).replaceFirstChar { it.uppercase(Locale.US) }}", 
+            cameraWbSetting != "AUTO"
+        )
+
+        // 8. Camera Level
+        setOptionState(
+            view, 
+            R.id.icon_level, 
+            R.id.val_level, 
+            "Camera Level", 
+            cameraLevelSetting
+        )
+
+        // 9. Add Text
+        val currentNote = CustomNoteConfig.load(this)
+        setOptionState(
+            view, 
+            R.id.icon_addtext, 
+            R.id.val_addtext, 
+            "Add Text", 
+            currentNote.text.isNotBlank()
+        )
+
+        // 10. Record Video with Voice
+        setOptionState(
+            view, 
+            R.id.icon_voice, 
+            R.id.val_voice, 
+            "Record Video with Voice", 
+            cameraVoiceSetting
+        )
+
+        // 11. Flash Light
+        setOptionState(
+            view, 
+            R.id.icon_flash, 
+            R.id.val_flash, 
+            "Flash $cameraFlashSetting", 
+            cameraFlashSetting != "Off"
+        )
+
+        // 12. Camera Lens
+        setOptionState(
+            view, 
+            R.id.icon_lens, 
+            R.id.val_lens, 
+            if (isBackCamera) "Rear Camera" else "Front Camera", 
+            !isBackCamera
+        )
+
+        // 13. Camera Stamp
+        setOptionState(
+            view, 
+            R.id.icon_stamp, 
+            R.id.val_stamp, 
+            if (cameraStampSetting) "Stamp On" else "Stamp Off", 
+            cameraStampSetting
+        )
+
+        // 14. GPS Telemetry
+        setOptionState(
+            view, 
+            R.id.icon_telemetry, 
+            R.id.val_telemetry, 
+            if (cameraTelemetrySetting) "Telemetry On" else "Telemetry Off", 
+            cameraTelemetrySetting
+        )
+
+        // 15. Time Format
+        setOptionState(
+            view, 
+            R.id.icon_time_format, 
+            R.id.val_time_format, 
+            "Time $cameraTimeFormatSetting", 
+            cameraTimeFormatSetting == "24H"
+        )
+    }
+
+    private var isStickerSelected: Boolean = false
+    private var currentStickerConfig: CustomNoteConfig? = null
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN && isStickerSelected) {
+            val container = findViewById<View>(R.id.liveCustomNoteContainer)
+            if (container != null && container.visibility == View.VISIBLE) {
+                val rect = Rect()
+                container.getGlobalVisibleRect(rect)
+                val padding = (24 * resources.displayMetrics.density).toInt()
+                rect.inset(-padding, -padding)
+                if (!rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    setStickerSelected(false)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun setStickerSelected(selected: Boolean) {
+        isStickerSelected = selected
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val btnDelete = findViewById<View>(R.id.btnStickerDelete) ?: return
+        val btnMirror = findViewById<View>(R.id.btnStickerMirror) ?: return
+        val btnEdit = findViewById<View>(R.id.btnStickerEdit) ?: return
+        val btnResize = findViewById<View>(R.id.btnStickerResize) ?: return
+
+        if (selected) {
+            contentBox.setBackgroundResource(R.drawable.sticker_border_selected)
+            btnDelete.visibility = View.VISIBLE
+            btnMirror.visibility = View.VISIBLE
+            btnEdit.visibility = View.VISIBLE
+            btnResize.visibility = View.VISIBLE
+        } else {
+            contentBox.background = null
+            btnDelete.visibility = View.GONE
+            btnMirror.visibility = View.GONE
+            btnEdit.visibility = View.GONE
+            btnResize.visibility = View.GONE
+        }
+    }
+
+    private fun spacing(event: MotionEvent): Float {
+        if (event.pointerCount < 2) return 0f
+        val x = event.getX(0) - event.getX(1)
+        val y = event.getY(0) - event.getY(1)
+        return Math.hypot(x.toDouble(), y.toDouble()).toFloat()
+    }
+
+    private fun angle(event: MotionEvent): Double {
+        if (event.pointerCount < 2) return 0.0
+        val x = (event.getX(0) - event.getX(1)).toDouble()
+        val y = (event.getY(0) - event.getY(1)).toDouble()
+        return Math.toDegrees(Math.atan2(y, x))
+    }
+
+    private fun setupLiveCustomNoteSticker() {
+        val container = findViewById<View>(R.id.liveCustomNoteContainer) ?: return
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val textView = findViewById<TextView>(R.id.liveCustomNoteText) ?: return
+        val btnDelete = findViewById<View>(R.id.btnStickerDelete) ?: return
+        val btnMirror = findViewById<View>(R.id.btnStickerMirror) ?: return
+        val btnEdit = findViewById<View>(R.id.btnStickerEdit) ?: return
+        val btnResize = findViewById<View>(R.id.btnStickerResize) ?: return
+
+        setStickerSelected(false)
+
+        // 1. Drag & Tap & Multi-touch on Content Box
+        var startRawX = 0f
+        var startRawY = 0f
+        var startTransX = 0f
+        var startTransY = 0f
+        var isDraggingSticker = false
+        var isPinching = false
+        var startPinchDist = 0f
+        var startPinchAngle = 0.0
+        var startPinchSize = 20f
+        var startPinchRot = 0f
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+
+        contentBox.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    startTransX = container.translationX
+                    startTransY = container.translationY
+                    isDraggingSticker = false
+                    isPinching = false
+                    setStickerSelected(true)
+                    true
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (event.pointerCount >= 2) {
+                        isPinching = true
+                        startPinchDist = spacing(event)
+                        startPinchAngle = angle(event)
+                        val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                        startPinchSize = cfg.textSizeSp
+                        startPinchRot = container.rotation
+                    }
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isPinching && event.pointerCount >= 2) {
+                        val currentDist = spacing(event)
+                        if (startPinchDist > 10f) {
+                            val scale = currentDist / startPinchDist
+                            val newSize = (startPinchSize * scale).coerceIn(12f, 72f)
+                            textView.textSize = newSize
+                            val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                            cfg.textSizeSp = newSize
+                        }
+
+                        val currentAngle = angle(event)
+                        val deltaAngle = (currentAngle - startPinchAngle).toFloat()
+                        var newRot = (startPinchRot + deltaAngle) % 360f
+                        if (newRot < 0f) newRot += 360f
+                        if (newRot < 4f || newRot > 356f) newRot = 0f
+                        else if (Math.abs(newRot - 90f) < 4f) newRot = 90f
+                        else if (Math.abs(newRot - 180f) < 4f) newRot = 180f
+                        else if (Math.abs(newRot - 270f) < 4f) newRot = 270f
+                        container.rotation = newRot
+                        val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                        cfg.rotation = newRot
+                    } else if (!isPinching) {
+                        val dx = event.rawX - startRawX
+                        val dy = event.rawY - startRawY
+                        val dist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                        if (dist > touchSlop) {
+                            isDraggingSticker = true
+                        }
+                        if (isDraggingSticker) {
+                            container.translationX = startTransX + dx
+                            container.translationY = startTransY + dy
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_POINTER_UP -> {
+                    if (event.pointerCount <= 2) {
+                        isPinching = false
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (!isDraggingSticker && !isPinching) {
+                        setStickerSelected(true)
+                    } else {
+                        val parentView = container.parent as? View
+                        if (parentView != null && parentView.width > 0 && parentView.height > 0) {
+                            val centerX = container.left + container.translationX + container.width / 2f
+                            val centerY = container.top + container.translationY + container.height / 2f
+                            val normX = (centerX / parentView.width).coerceIn(0.05f, 0.95f)
+                            val normY = (centerY / parentView.height).coerceIn(0.05f, 0.95f)
+                            val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                            cfg.isCustomPositioned = true
+                            cfg.normPosX = normX
+                            cfg.normPosY = normY
+                            CustomNoteConfig.save(this, cfg)
+                            currentStickerConfig = cfg
+                            gpsOverlayRenderer.customNoteConfig = cfg
+                        }
+                    }
+                    isPinching = false
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // 2. Top-Left: Delete button (Trash can)
+        btnDelete.setOnClickListener {
+            val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+            cfg.text = ""
+            cfg.isMirrored = false
+            CustomNoteConfig.save(this, cfg)
+            currentStickerConfig = cfg
+            gpsOverlayRenderer.customNote = null
+            gpsOverlayRenderer.customNoteConfig = cfg
+            cameraTextSetting = ""
+            setStickerSelected(false)
+            container.visibility = View.GONE
+            Toast.makeText(this, "Text deleted", Toast.LENGTH_SHORT).show()
+        }
+
+        // 3. Top-Right: Mirror/Flip button
+        btnMirror.setOnClickListener {
+            val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+            cfg.isMirrored = !cfg.isMirrored
+            contentBox.scaleX = if (cfg.isMirrored) -1f else 1f
+            CustomNoteConfig.save(this, cfg)
+            currentStickerConfig = cfg
+            gpsOverlayRenderer.customNoteConfig = cfg
+            val status = if (cfg.isMirrored) "Mirrored" else "Normal"
+            Toast.makeText(this, "Text $status", Toast.LENGTH_SHORT).show()
+        }
+
+        // 4. Bottom-Left: Edit button (Pencil)
+        btnEdit.setOnClickListener {
+            openInstagramTextEditor()
+        }
+
+        // 5. Bottom-Right: Resize & Rotate handle
+        var startDist = 0f
+        var startAngle = 0.0
+        var startSize = 20f
+        var startRot = 0f
+
+        btnResize.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    val parentView = container.parent as? View
+                    val parentLoc = IntArray(2)
+                    parentView?.getLocationOnScreen(parentLoc)
+                    val stickerCenterX = parentLoc[0] + container.x + container.pivotX
+                    val stickerCenterY = parentLoc[1] + container.y + container.pivotY
+
+                    val dx = event.rawX - stickerCenterX
+                    val dy = event.rawY - stickerCenterY
+                    startDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    startAngle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
+                    val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                    startSize = cfg.textSizeSp
+                    startRot = container.rotation
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val parentView = container.parent as? View
+                    val parentLoc = IntArray(2)
+                    parentView?.getLocationOnScreen(parentLoc)
+                    val stickerCenterX = parentLoc[0] + container.x + container.pivotX
+                    val stickerCenterY = parentLoc[1] + container.y + container.pivotY
+
+                    val dx = event.rawX - stickerCenterX
+                    val dy = event.rawY - stickerCenterY
+                    val currentDist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    if (startDist > 10f) {
+                        val scale = currentDist / startDist
+                        val newSize = (startSize * scale).coerceIn(12f, 72f)
+                        textView.textSize = newSize
+                        val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                        cfg.textSizeSp = newSize
+                    }
+
+                    val currentAngle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
+                    val deltaAngle = (currentAngle - startAngle).toFloat()
+                    var newRot = (startRot + deltaAngle) % 360f
+                    if (newRot < 0f) newRot += 360f
+
+                    // Snapping to cardinal angles within 4 degrees
+                    if (newRot < 4f || newRot > 356f) newRot = 0f
+                    else if (Math.abs(newRot - 90f) < 4f) newRot = 90f
+                    else if (Math.abs(newRot - 180f) < 4f) newRot = 180f
+                    else if (Math.abs(newRot - 270f) < 4f) newRot = 270f
+
+                    container.rotation = newRot
+                    val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                    cfg.rotation = newRot
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val cfg = currentStickerConfig ?: CustomNoteConfig.load(this)
+                    CustomNoteConfig.save(this, cfg)
+                    currentStickerConfig = cfg
+                    gpsOverlayRenderer.customNoteConfig = cfg
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun openInstagramTextEditor() {
+        val currentConfig = CustomNoteConfig.load(this)
+
+        // Blur live camera preview while editing text
+        val previewView = findViewById<View>(R.id.viewFinder)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                previewView?.setRenderEffect(android.graphics.RenderEffect.createBlurEffect(30f, 30f, android.graphics.Shader.TileMode.CLAMP))
+            } catch (e: Exception) {}
+        }
+
+        val textEditorDialog = InstagramTextEditorDialog(this, currentConfig) { savedConfig ->
+            cameraTextSetting = savedConfig.text
+            gpsOverlayRenderer.customNote = savedConfig.text.ifBlank { null }
+            gpsOverlayRenderer.customNoteConfig = savedConfig
+            updateLiveCustomNoteView(savedConfig)
+            updateLiveOverlay()
+            if (savedConfig.text.isNotBlank()) {
+                setStickerSelected(true)
+            } else {
+                setStickerSelected(false)
+            }
+            val msg = if (savedConfig.text.isBlank()) {
+                "Text removed"
+            } else {
+                "Text added"
+            }
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+        textEditorDialog.setOnDismissListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    previewView?.setRenderEffect(null)
+                } catch (e: Exception) {}
+            }
+        }
+        textEditorDialog.show()
+    }
+
+    private fun updateLiveCustomNoteView(config: CustomNoteConfig) {
+        currentStickerConfig = config
+        val container = findViewById<View>(R.id.liveCustomNoteContainer) ?: return
+        val contentBox = findViewById<View>(R.id.stickerContentBox) ?: return
+        val textView = findViewById<TextView>(R.id.liveCustomNoteText) ?: return
+
+        if (config.text.isBlank() || config.position == NotePosition.INSIDE_OVERLAY.id) {
+            container.visibility = View.GONE
+            setStickerSelected(false)
+            return
+        }
+
+        container.visibility = View.VISIBLE
+        textView.text = config.text
+        InstagramTextStyler.applyStyleToView(textView, config)
+        container.rotation = config.rotation
+        contentBox.scaleX = if (config.isMirrored) -1f else 1f
+        setStickerSelected(true)
+
+        val params = container.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams ?: return
+        when (config.position) {
+            NotePosition.TOP.id -> {
+                params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.topMargin = (76 * resources.displayMetrics.density).toInt()
+                params.bottomMargin = 0
+            }
+            NotePosition.CENTER.id -> {
+                params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                params.bottomToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.topMargin = 0
+                params.bottomMargin = 0
+            }
+            else -> { // ABOVE_CARD
+                params.topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.topToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                params.bottomToTop = R.id.gpsOverlayWrapper
+                params.bottomMargin = (12 * resources.displayMetrics.density).toInt()
+                params.topMargin = 0
+            }
+        }
+        container.layoutParams = params
+
+        if (config.isCustomPositioned) {
+            container.post {
+                val parentView = container.parent as? View ?: return@post
+                if (parentView.width > 0 && parentView.height > 0) {
+                    val targetCenterX = config.normPosX * parentView.width
+                    val targetCenterY = config.normPosY * parentView.height
+                    val currentCenterX = container.left + container.width / 2f
+                    val currentCenterY = container.top + container.height / 2f
+                    container.translationX = targetCenterX - currentCenterX
+                    container.translationY = targetCenterY - currentCenterY
+                }
+            }
+        } else {
+            container.translationX = 0f
+            container.translationY = 0f
         }
     }
 }

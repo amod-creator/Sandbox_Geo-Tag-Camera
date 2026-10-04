@@ -379,15 +379,18 @@ class VisitReportPdfGenerator(private val context: Context) {
             val paint = Paint().apply { isAntiAlias = true; isFilterBitmap = true }
             collageBitmap?.let { collage ->
                 newPage()
-                canvas.drawText("COLLAGE REPORT", pageW / 2f, currentY + 15f, titleTextBold)
+                canvas.drawText("COLLAGE REPORT - SITE PHOTOGRAPHS", pageW / 2f, currentY + 15f, titleTextBold)
                 currentY += 30f
                 val maxImgW = pageW - margin * 2
-                val maxImgH = pageH - 100f - currentY
+                val maxImgH = pageH - 90f - currentY
                 val scale = minOf(maxImgW / collage.width.toFloat(), maxImgH / collage.height.toFloat())
-                val drawW = collage.width * scale; val drawH = collage.height * scale
+                val drawW = collage.width * scale
+                val drawH = collage.height * scale
                 val drawX = margin + (maxImgW - drawW) / 2f
-                val rect = RectF(drawX, currentY, drawX + drawW, currentY + drawH)
-                canvas.drawBitmap(collage, null, rect, paint); canvas.drawRect(rect, borderPaint)
+                val drawY = currentY + (maxImgH - drawH) / 2f
+                val rect = RectF(drawX, drawY, drawX + drawW, drawY + drawH)
+                canvas.drawBitmap(collage, null, rect, paint)
+                canvas.drawRect(rect, borderPaint)
                 currentY = pageH.toFloat() 
             }
 

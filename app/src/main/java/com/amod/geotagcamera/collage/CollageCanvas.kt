@@ -43,6 +43,8 @@ class CollageCanvas @JvmOverloads constructor(
     private var isScaling = false
     private var isTwoFingerGesture = false
 
+    private val scaleGestureDetector by lazy { android.view.ScaleGestureDetector(context, ScaleListener()) }
+
     private var lastTapTime = 0L
     private val doubleTapTimeout = 300L
 
@@ -190,6 +192,12 @@ class CollageCanvas @JvmOverloads constructor(
 
     // Touch Event Handling
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        scaleGestureDetector.onTouchEvent(event)
+        if (event.pointerCount >= 2) {
+            isDragging = false
+            return true
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastTouchX = event.x
@@ -298,4 +306,49 @@ class CollageCanvas @JvmOverloads constructor(
     // Stubs for other original methods to keep structure
     fun undo() { /* ... */ }
     fun redo() { /* ... */ }
+
+    private inner class ScaleListener : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        private var prevFocusX = 0f
+        private var prevFocusY = 0f
+
+        override fun onScaleBegin(detector: android.view.ScaleGestureDetector): Boolean {
+            prevFocusX = detector.focusX
+            prevFocusY = detector.focusY
+            return true
+        }
+
+        override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+            val element = selectedElement ?: findElementAt(detector.focusX, detector.focusY)
+            element?.let { elem ->
+                if (selectedElement != elem) {
+                    selectedElement = elem
+                }
+                
+                val index = elements.indexOfFirst { it.id == elem.id }
+                if (index != -1) {
+                    val currentScale = elem.scale * detector.scaleFactor
+                    val newScale = currentScale.coerceIn(0.1f, 8.0f)
+                    
+                    val dx = detector.focusX - prevFocusX
+                    val dy = detector.focusY - prevFocusY
+                    prevFocusX = detector.focusX
+                    prevFocusY = detector.focusY
+                    
+                    // Pan movement: offset the rect
+                    elem.rect.offset(dx, dy)
+                    
+                    // Copy element with new scale
+                    val updatedElement = when (elem) {
+                        is CollageElement.PhotoElement -> elem.copy(scale = newScale)
+                        is CollageElement.TextElement -> elem.copy(scale = newScale)
+                        is CollageElement.StickerElement -> elem.copy(scale = newScale)
+                        is CollageElement.ShapeElement -> elem.copy(scale = newScale)
+                    }
+                    elements[index] = updatedElement
+                    invalidate()
+                }
+            }
+            return true
+        }
+    }
 }

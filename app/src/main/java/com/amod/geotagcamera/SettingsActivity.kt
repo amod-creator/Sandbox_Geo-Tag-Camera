@@ -10,6 +10,8 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import android.os.Build
 import com.amod.geotagcamera.databinding.ActivitySettingsBinding
 import android.widget.SeekBar
 import android.widget.FrameLayout
@@ -46,6 +48,21 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+            WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+            val decor = window.peekDecorView()
+            if (decor != null) {
+                WindowCompat.getInsetsController(window, decor).show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -59,6 +76,26 @@ class SettingsActivity : AppCompatActivity() {
         // Set up toolbar back button
         binding.settingsToolbar.setNavigationOnClickListener {
             finish()
+        }
+
+
+
+        // Set up Language Selection option
+        updateCurrentLanguageBadge()
+        binding.cardLanguageSettings.setOnClickListener {
+            showLanguageSelectionDialog()
+        }
+
+        // Set up Theme Selection option
+        updateCurrentThemeBadge()
+        binding.cardThemeSettings.setOnClickListener {
+            showThemeSelectionDialog()
+        }
+
+        // Set up Map Type Selection option (Terrain, Normal, Hybrid)
+        updateCurrentMapTypeBadge()
+        binding.cardMapTypeSettings.setOnClickListener {
+            showMapTypeSelectionDialog()
         }
 
         // Shared preferences setup for Visit Mode
@@ -411,6 +448,81 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         hideNavigationBar()
+        updateCurrentLanguageBadge()
+        updateCurrentThemeBadge()
+        updateCurrentMapTypeBadge()
+    }
+
+    private fun updateCurrentLanguageBadge() {
+        val language = com.amod.geotagcamera.model.AppLanguage.getSelectedLanguage(this)
+        binding.tvCurrentLanguageBadge.text = "${language.nativeName} (${language.displayName})"
+    }
+
+    private fun updateCurrentThemeBadge() {
+        val theme = com.amod.geotagcamera.model.AppTheme.getSelectedTheme(this)
+        binding.tvCurrentThemeBadge.text = theme.displayName
+    }
+
+    private fun updateCurrentMapTypeBadge() {
+        val mapType = com.amod.geotagcamera.model.MapType.getSelectedMapType(this)
+        binding.tvCurrentMapTypeBadge.text = mapType.displayName
+    }
+
+    private fun showMapTypeSelectionDialog() {
+        val mapTypes = com.amod.geotagcamera.model.MapType.values()
+        val currentType = com.amod.geotagcamera.model.MapType.getSelectedMapType(this)
+        val currentIndex = mapTypes.indexOf(currentType).coerceAtLeast(0)
+        val items = mapTypes.map { "${it.displayName}  —  ${it.description}" }.toTypedArray()
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Select GPS Map Type")
+            .setSingleChoiceItems(items, currentIndex) { dialog, which ->
+                val selected = mapTypes[which]
+                com.amod.geotagcamera.model.MapType.setSelectedMapType(this, selected)
+                updateCurrentMapTypeBadge()
+                android.widget.Toast.makeText(this, "Map set to ${selected.displayName}", android.widget.Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showLanguageSelectionDialog() {
+        val languages = com.amod.geotagcamera.model.AppLanguage.values()
+        val currentLang = com.amod.geotagcamera.model.AppLanguage.getSelectedLanguage(this)
+        val currentIndex = languages.indexOf(currentLang).coerceAtLeast(0)
+        val items = languages.map { "${it.nativeName}  •  ${it.displayName}" }.toTypedArray()
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Select GPS & Overlay Language")
+            .setSingleChoiceItems(items, currentIndex) { dialog, which ->
+                val selectedLang = languages[which]
+                com.amod.geotagcamera.model.AppLanguage.setSelectedLanguage(this, selectedLang)
+                updateCurrentLanguageBadge()
+                android.widget.Toast.makeText(this, "Language set to ${selectedLang.displayName}", android.widget.Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showThemeSelectionDialog() {
+        val themes = com.amod.geotagcamera.model.AppTheme.values()
+        val currentTheme = com.amod.geotagcamera.model.AppTheme.getSelectedTheme(this)
+        val currentIndex = themes.indexOf(currentTheme).coerceAtLeast(0)
+        val items = themes.map { it.displayName }.toTypedArray()
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Select App Theme")
+            .setSingleChoiceItems(items, currentIndex) { dialog, which ->
+                val selectedTheme = themes[which]
+                com.amod.geotagcamera.model.AppTheme.setSelectedTheme(this, selectedTheme)
+                updateCurrentThemeBadge()
+                android.widget.Toast.makeText(this, "Theme set to ${selectedTheme.displayName}", android.widget.Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

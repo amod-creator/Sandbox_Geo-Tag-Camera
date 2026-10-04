@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="stylesheet" href="leaflet.css" />
+    <script src="leaflet.js"></script>
+    <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #12161A;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .leaflet-control-attribution, .leaflet-control-zoom {
+            display: none !important;
+        }
+
+        /* Custom Photo Marker Pin */
+        .photo-pin-container {
+            position: relative;
+            width: 60px;
+            height: 72px;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .photo-pin-container:active {
+            transform: scale(1.15);
+        }
+        .photo-pin-circle {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #FFC107;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            border: 2px solid #FFD54F;
+        }
+        .photo-pin-img {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            background: #263238;
+        }
+        .photo-pin-tip {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 14px solid #FFC107;
+            margin: -3px auto 0 auto;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+        }
+
+        /* Current Location Pulsing Marker */
+        .user-location-marker {
+            position: relative;
+            width: 24px;
+            height: 24px;
+        }
+        .user-location-dot {
+            width: 16px;
+            height: 16px;
+            background-color: #2196F3;
+            border: 3px solid #FFFFFF;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(33, 150, 243, 0.8);
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            z-index: 2;
+        }
+        .user-location-pulse {
+            width: 24px;
+            height: 24px;
+            background-color: rgba(33, 150, 243, 0.4);
+            border-radius: 50%;
+            animation: pulse-ring 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.6); opacity: 0.9; }
+            70% { transform: scale(2.2); opacity: 0; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false,
+            maxZoom: 19,
+            minZoom: 2
+        }).setView([20.0, 0.0], 3);
+
+        // Tile Layers
+        var layers = {
+            'default': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }),
+            'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19
+            }),
+            'terrain': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 17,
+                subdomains: 'abc'
+            }),
+            'hybrid': L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' })
+            ])
+        };
+
+        var currentLayerType = 'default';
+        layers[currentLayerType].addTo(map);
+
+        var markersGroup = L.featureGroup().addTo(map);
+        var userLocationMarker = null;
+
+        // Switch Map Type
+        function setMapType(type) {
+            if (layers[currentLayerType]) {
+                map.removeLayer(layers[currentLayerType]);
+            }
+            if (layers[type]) {
+                currentLayerType = type;
+                layers[type].addTo(map);
+            }
+        }
+
+        // Set Current GPS Location
+        function setCurrentLocation(lat, lon, animate) {
+            var latLng = [lat, lon];
+            if (!userLocationMarker) {
+                var userIcon = L.divIcon({
+                    className: 'user-location-marker',
+                    html: '<div class="user-location-pulse"></div><div class="user-location-dot"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+            } else {
+                userLocationMarker.setLatLng(latLng);
+            }
+
+            if (animate) {
+                map.flyTo(latLng, Math.max(map.getZoom(), 15), { animate: true, duration: 0.8 });
+            }
+        }
+
+        // Set Photo Markers from JSON
+        function setMarkers(itemsJson) {
+            try {
+                var items = (typeof itemsJson === 'string') ? JSON.parse(itemsJson) : itemsJson;
+                markersGroup.clearLayers();
+
+                if (!items || items.length === 0) {
+                    return;
+                }
+
+                items.forEach(function(item) {
+                    var imgSrc = item.thumbBase64 ? ("data:image/jpeg;base64," + item.thumbBase64) : "";
+                    var pinHtml = '<div class="photo-pin-container">' +
+                                  '  <div class="photo-pin-circle">' +
+                                  '    <img class="photo-pin-img" src="' + imgSrc + '" onerror="this.style.display=\'none\'" />' +
+                                  '  </div>' +
+                                  '  <div class="photo-pin-tip"></div>' +
+                                  '</div>';
+
+                    var icon = L.divIcon({
+                        className: '',
+                        html: pinHtml,
+                        iconSize: [60, 72],
+                        iconAnchor: [30, 72]
+                    });
+
+                    var marker = L.marker([item.latitude, item.longitude], { icon: icon });
+                    marker.on('click', function(e) {
+                        L.DomEvent.stopPropagation(e);
+                        map.panTo([item.latitude, item.longitude]);
+                        if (window.AndroidBridge && window.AndroidBridge.onMarkerClicked) {
+                            window.AndroidBridge.onMarkerClicked(item.path);
+                        }
+                    });
+
+                    markersGroup.addLayer(marker);
+                });
+
+                // Auto fit bounds to markers
+                if (items.length > 0) {
+                    map.fitBounds(markersGroup.getBounds().pad(0.15), { maxZoom: 16 });
+                }
+            } catch (e) {
+                console.error("Error setting markers: " + e);
+            }
+        }
+
+        // Map Click Listener
+        map.on('click', function() {
+            if (window.AndroidBridge && window.AndroidBridge.onMapClicked) {
+                window.AndroidBridge.onMapClicked();
+            }
+        });
+
+        // Zoom controls
+        function zoomIn() { map.zoomIn(); }
+        function zoomOut() { map.zoomOut(); }
+
+        // Notify Android that map is ready
+        setTimeout(function() {
+            if (window.AndroidBridge && window.AndroidBridge.onMapReady) {
+                window.AndroidBridge.onMapReady();
+            }
+        }, 150);
+    </script>
+</body>
+</html>

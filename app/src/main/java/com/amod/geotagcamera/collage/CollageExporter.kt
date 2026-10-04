@@ -11,6 +11,8 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.amod.geotagcamera.model.CustomNoteConfig
+import com.amod.geotagcamera.utils.InstagramTextStyler
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -30,7 +32,7 @@ object CollageExporter {
     /**
      * Render the collage to a bitmap.
      */
-    fun render(state: CollageState): Bitmap? {
+    fun render(context: Context, state: CollageState): Bitmap? {
         val ratio = state.ratio.value()
         val w: Int
         val h: Int
@@ -54,13 +56,30 @@ object CollageExporter {
 
         val borderPx = state.border.widthDp * 3f // density-independent approximation for export
 
+        // Calculate outer margin to showcase custom backgrounds as a frame
+        val outerMargin = if (state.border == CollageBorder.PADDED) {
+            w * 0.05f
+        } else if (state.background != CollageBg.WHITE && state.background != CollageBg.BLACK) {
+            w * 0.035f // Beautiful 3.5% outer frame to make custom background pop
+        } else {
+            0f
+        }
+        val innerW = w - (outerMargin * 2f)
+        val innerH = h - (outerMargin * 2f)
+
         // Draw each cell
         for (i in template.cells.indices) {
             val cell = template.cells[i]
             val img = if (i < state.images.size) state.images[i] else null
             img ?: continue
 
-            val rect = cell.toRectF(w.toFloat(), h.toFloat())
+            // Map template coordinates to the inner canvas area (accounting for outer margin)
+            val cLeft = outerMargin + (cell.left * innerW)
+            val cTop = outerMargin + (cell.top * innerH)
+            val cRight = outerMargin + (cell.right * innerW)
+            val cBottom = outerMargin + (cell.bottom * innerH)
+            val rect = RectF(cLeft, cTop, cRight, cBottom)
+
             // Inset by border
             val insetRect = RectF(
                 rect.left + borderPx / 2,
@@ -69,13 +88,29 @@ object CollageExporter {
                 rect.bottom - borderPx / 2
             )
 
-            // Draw image scaled to fit cell
-            drawImageInCell(canvas, img, insetRect)
+            val scale = if (i < state.scales.size) state.scales[i] else 1f
+            val ox = if (i < state.offsetsX.size) state.offsetsX[i] else 0f
+            val oy = if (i < state.offsetsY.size) state.offsetsY[i] else 0f
 
-            // Draw border
+            // Draw image scaled to fit cell with custom scale and panning
+            drawImageInCell(canvas, img, insetRect, scale, ox, oy)
+
+            // Draw border consistently (always draw border if selected to maintain clean grids)
             if (state.border != CollageBorder.NONE && borderPx > 0) {
                 drawBorder(canvas, rect, state.border, borderPx)
             }
+        }
+
+        // Draw custom text sticker if present at its exact custom position on final export
+        if (state.stickerConfig != null && state.stickerConfig.text.isNotBlank()) {
+            InstagramTextStyler.drawStickerOnCanvas(
+                canvas,
+                state.stickerConfig,
+                context,
+                w,
+                h,
+                h - 100f
+            )
         }
 
         return bitmap
@@ -84,7 +119,7 @@ object CollageExporter {
     /**
      * Render a preview bitmap at lower resolution.
      */
-    fun renderPreview(state: CollageState, previewSize: Int = 800): Bitmap? {
+    fun renderPreview(context: Context, state: CollageState, previewSize: Int = 800): Bitmap? {
         val ratio = state.ratio.value()
         val w: Int
         val h: Int
@@ -106,12 +141,29 @@ object CollageExporter {
 
         val borderPx = state.border.widthDp * 2f
 
+        // Calculate outer margin to showcase custom backgrounds as a frame
+        val outerMargin = if (state.border == CollageBorder.PADDED) {
+            w * 0.05f
+        } else if (state.background != CollageBg.WHITE && state.background != CollageBg.BLACK) {
+            w * 0.035f // Beautiful 3.5% outer frame to make custom background pop
+        } else {
+            0f
+        }
+        val innerW = w - (outerMargin * 2f)
+        val innerH = h - (outerMargin * 2f)
+
         for (i in template.cells.indices) {
             val cell = template.cells[i]
             val img = if (i < state.images.size) state.images[i] else null
             img ?: continue
 
-            val rect = cell.toRectF(w.toFloat(), h.toFloat())
+            // Map template coordinates to the inner canvas area (accounting for outer margin)
+            val cLeft = outerMargin + (cell.left * innerW)
+            val cTop = outerMargin + (cell.top * innerH)
+            val cRight = outerMargin + (cell.right * innerW)
+            val cBottom = outerMargin + (cell.bottom * innerH)
+            val rect = RectF(cLeft, cTop, cRight, cBottom)
+
             val insetRect = RectF(
                 rect.left + borderPx / 2,
                 rect.top + borderPx / 2,
@@ -119,12 +171,37 @@ object CollageExporter {
                 rect.bottom - borderPx / 2
             )
 
-            drawImageInCell(canvas, img, insetRect)
+            val scale = if (i < state.scales.size) state.scales[i] else 1f
+            val ox = if (i < state.offsetsX.size) state.offsetsX[i] else 0f
+            val oy = if (i < state.offsetsY.size) state.offsetsY[i] else 0f
 
+            drawImageInCell(canvas, img, insetRect, scale, ox, oy)
+
+            // Highlight selected image index with color tint and thick outline
+            if (i == state.selectedIndex) {
+                val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#4000E5FF") // 25% transparent Cyan overlay tint
+                    style = Paint.Style.FILL
+                }
+                canvas.drawRect(insetRect, tintPaint)
+
+                val selectPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#00E5FF") // Beautiful Cyan Outline
+                    strokeWidth = 6f
+                    style = Paint.Style.STROKE
+                }
+                canvas.drawRect(insetRect, selectPaint)
+            }
+
+            // Draw border consistently (always draw border if selected to maintain clean grids)
             if (state.border != CollageBorder.NONE && borderPx > 0) {
                 drawBorder(canvas, rect, state.border, borderPx)
             }
         }
+
+        // Note: We deliberately do NOT draw the custom text sticker in renderPreview()
+        // because the interactive, draggable floating TextView is shown on top of the layout.
+        // This avoids creating a static "ghost" sticker duplicate behind the interactive one.
 
         return bitmap
     }
@@ -143,26 +220,44 @@ object CollageExporter {
         }
     }
 
-    private fun drawImageInCell(canvas: Canvas, img: Bitmap, rect: RectF) {
+    private fun drawImageInCell(
+        canvas: Canvas, 
+        img: Bitmap, 
+        rect: RectF,
+        scale: Float = 1f,
+        offsetX: Float = 0f,
+        offsetY: Float = 0f
+    ) {
         if (rect.width() <= 0 || rect.height() <= 0) return
+
+        canvas.save()
+        canvas.clipRect(rect)
 
         val srcRatio = img.width.toFloat() / img.height.toFloat()
         val dstRatio = rect.width() / rect.height()
 
-        val srcRect: Rect = if (srcRatio > dstRatio) {
-            // Image is wider: crop sides
-            val newW = (img.height * dstRatio).toInt()
-            val offset = (img.width - newW) / 2
-            Rect(offset, 0, offset + newW, img.height)
+        val matrix = Matrix()
+        val baseScale = if (srcRatio > dstRatio) {
+            rect.height() / img.height
         } else {
-            // Image is taller: crop top/bottom
-            val newH = (img.width / dstRatio).toInt()
-            val offset = (img.height - newH) / 2
-            Rect(0, offset, img.width, offset + newH)
+            rect.width() / img.width
         }
 
+        val dx = (rect.width() - img.width * baseScale) / 2f
+        val dy = (rect.height() - img.height * baseScale) / 2f
+
+        matrix.postScale(baseScale, baseScale)
+        matrix.postTranslate(rect.left + dx, rect.top + dy)
+
+        // Custom scale/zoom relative to cell center, and custom offsets
+        val centerX = rect.centerX()
+        val centerY = rect.centerY()
+        matrix.postScale(scale, scale, centerX, centerY)
+        matrix.postTranslate(offsetX * rect.width(), offsetY * rect.height())
+
         val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-        canvas.drawBitmap(img, srcRect, rect, paint)
+        canvas.drawBitmap(img, matrix, paint)
+        canvas.restore()
     }
 
     private fun drawBorder(canvas: Canvas, rect: RectF, border: CollageBorder, borderPx: Float) {
@@ -183,7 +278,7 @@ object CollageExporter {
      * Save collage to gallery.
      */
     fun save(context: Context, state: CollageState, onComplete: (Uri?) -> Unit) {
-        val bitmap = render(state) ?: run { onComplete(null); return }
+        val bitmap = render(context, state) ?: run { onComplete(null); return }
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "Collage_$timestamp.jpg"
 
@@ -221,7 +316,7 @@ object CollageExporter {
      * Share collage via intent.
      */
     fun share(context: Context, state: CollageState, onComplete: (Boolean) -> Unit) {
-        val bitmap = render(state) ?: run { onComplete(false); return }
+        val bitmap = render(context, state) ?: run { onComplete(false); return }
         try {
             val cacheDir = File(context.cacheDir, "collage_share")
             cacheDir.mkdirs()

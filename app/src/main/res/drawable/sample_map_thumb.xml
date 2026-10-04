@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="100dp"
+    android:viewportWidth="120"
+    android:viewportHeight="100">
+    <!-- Sky / Ocean water base -->
+    <path
+        android:fillColor="#347893"
+        android:pathData="M0,0h120v100h-120z"/>
+    <!-- Deep water gradient effect -->
+    <path
+        android:fillColor="#1B4D60"
+        android:pathData="M0,50 Q40,65 70,80 L120,100 L0,100 Z"/>
+    <!-- Land peninsula -->
+    <path
+        android:fillColor="#4D7C56"
+        android:pathData="M0,0 L120,0 L120,60 Q80,45 50,30 Q20,35 0,15 Z"/>
+    <!-- Inland terrain / fields -->
+    <path
+        android:fillColor="#6A9772"
+        android:pathData="M20,0 L100,0 L85,25 Q50,20 20,0 Z"/>
+    <!-- Urban / buildings settlement -->
+    <path
+        android:fillColor="#D8A47F"
+        android:pathData="M35,5 L65,8 L60,20 L30,15 Z"/>
+    <!-- Coastal pier / roads -->
+    <path
+        android:fillColor="#E6D3B3"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M10,25 Q30,40 55,48 L65,70"/>
+    <path
+        android:fillColor="#E6D3B3"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1"
+        android:pathData="M40,10 L75,35 M50,5 L85,25"/>
+    <!-- Road network -->
+    <path
+        android:strokeColor="#FFD54F"
+        android:strokeWidth="1.2"
+        android:pathData="M0,5 Q50,15 120,35"/>
+</vector>

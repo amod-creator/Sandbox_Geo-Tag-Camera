@@ -3,7 +3,6 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     kotlin("android")
-    kotlin("kapt")
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -11,25 +10,46 @@ android {
     namespace = "com.amod.geotagcamera"
     compileSdk = 36
 
+    signingConfigs {
+        create("debugConfig") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.amod.geotagcamera"
+        applicationId = "com.aistudio.geotagcamera.fkslae"
         minSdk = 24
         targetSdk = 36
         versionCode = 13
         versionName = "12.1"
         vectorDrawables.useSupportLibrary = true
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
 
-        // Read API key from local.properties
+        // Read API key from environment, local.properties, or working default
         val localPropertiesFile = rootProject.file("local.properties")
         val localProperties = Properties()
         if (localPropertiesFile.exists()) {
             localProperties.load(localPropertiesFile.inputStream())
         }
-        val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+                val mapsApiKey = System.getenv("MAPS_API_KEY") 
+            ?: localProperties.getProperty("MAPS_API_KEY") 
+            ?: "AIzaSyDBr0XfggiNMjgaqZXwJg4lDP-X9fHBtXY"
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        
+        val geminiApiKey = System.getenv("GEMINI_API_KEY") ?: localProperties.getProperty("GEMINI_API_KEY") ?: "AIzaSyAhAK6CwMuzhbyBjeLdAHR9Chf9NKR0yS8"
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debugConfig")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -66,7 +86,7 @@ android {
         buildConfig = true  // Enable BuildConfig generation
     }
 
-    packagingOptions {
+    packaging {
         jniLibs {
             useLegacyPackaging = false
         }
@@ -100,6 +120,13 @@ dependencies {
 
     // Google Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+
+    // Google Play Services ML Kit Text Recognition for free local offline OCR (Bundled version to prevent dynamic download failures)
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
+    // QR Code generation for Scan Location Template
+    implementation("com.google.zxing:core:3.5.3")
 
     // Jetpack Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")

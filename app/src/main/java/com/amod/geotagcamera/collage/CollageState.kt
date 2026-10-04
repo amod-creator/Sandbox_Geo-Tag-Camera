@@ -2,6 +2,7 @@ package com.amod.geotagcamera.collage
 
 import android.graphics.Bitmap
 import android.graphics.RectF
+import com.amod.geotagcamera.model.CustomNoteConfig
 
 /**
  * Immutable state model for the Collage Editor V2.
@@ -11,8 +12,13 @@ data class CollageState(
     val images: List<Bitmap?>,
     val layoutIndex: Int = 0,
     val ratio: CollageRatio = CollageRatio.RATIO_1_1,
-    val border: CollageBorder = CollageBorder.NONE,
-    val background: CollageBg = CollageBg.WHITE
+    val border: CollageBorder = CollageBorder.THIN_WHITE,
+    val background: CollageBg = CollageBg.WHITE,
+    val scales: List<Float> = List(images.size) { 1f },
+    val offsetsX: List<Float> = List(images.size) { 0f },
+    val offsetsY: List<Float> = List(images.size) { 0f },
+    val selectedIndex: Int = -1,
+    val stickerConfig: CustomNoteConfig? = null
 )
 
 enum class CollageRatio(val label: String, val widthRatio: Float, val heightRatio: Float) {
